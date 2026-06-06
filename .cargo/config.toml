@@ -1,0 +1,13 @@
+# Simplify command execution
+[alias]
+kbuild = "build --target riscv32i-unknown-none-elf"
+kasm = "rustc --target riscv32i-unknown-none-elf -- --emit=asm"
+kdoc = "doc --target riscv32i-unknown-none-elf"
+kclippy = "clippy --target riscv32i-unknown-none-elf"
+kclean = "clean --target riscv32i-unknown-none-elf"
+
+# Use the linker script to compile
+[target.riscv32i-unknown-none-elf]
+rustflags = [
+    "-C", "link-arg=-Tlinker.ld",
+]

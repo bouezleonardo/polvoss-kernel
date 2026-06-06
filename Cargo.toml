@@ -1,0 +1,6 @@
+[package]
+name = "polvoss_kernel"
+version = "26.6.1"
+edition = "2024"
+
+[dependencies]
