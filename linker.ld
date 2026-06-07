@@ -9,24 +9,28 @@ where the sections of the object files will be put */
 SECTIONS 
 {
   /* Start address offset */
-  . = 0x00000000;
+  . = 0x80000000;
   
   /* Program code */
   .text :
   {
-    *(.text .text.*)
+    *(.text.entry) /* this will be the first to load. */
+    *(.text)
+    *(.text.*)
   }
   
   /* Read-only data i.e. constants*/
   .rodata :
   {
-    *(.rodata .rodata.*)
+    *(.rodata)
+    *(.rodata.*)
   }
   
   /* Read-write initialized data */
   .data :
   {
-    *(.data .data.*)
+    *(.data)
+    *(.data.*)
   }
   
   /* Read-write uninitialized or 
@@ -34,6 +38,7 @@ SECTIONS
   .bss :
   {
     *(COMMON)
-    *(.bss .bss.*)
+    *(.bss)
+    *(.bss.*)
   }
 }

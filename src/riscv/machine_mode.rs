@@ -3,7 +3,8 @@
 //! Machine mode inline assembly functions.
 //!
 //! The following functions execute inline assembly
-//! code for Machine mode.
+//! code for Machine mode. They access Machine mode
+//! Control and Status Registers (CSRs).
 
 use core::arch::asm;
 
@@ -27,8 +28,8 @@ pub const MPP_U: usize = 0 << 11;
 pub fn read_mstatus() -> usize {
   let mut mstatus: usize;
   
-  // csrr reads mstatus into t0 register 
-  unsafe{ asm!("csrr t0, mstatus", out("t0") mstatus); }
+  // csrr reads mstatus into {} register 
+  unsafe{ asm!("csrr {}, mstatus", out(reg) mstatus); }
   
   mstatus
 }
@@ -36,8 +37,8 @@ pub fn read_mstatus() -> usize {
 /// Write to mstatus register
 pub fn write_mstatus(mstatus: usize) {
 
-  // csrw writes t0 into mstatus
-  unsafe{ asm!("csrw mstatus, t0", in("t0") mstatus); }
+  // csrw writes {} into mstatus
+  unsafe{ asm!("csrw mstatus, {}", in(reg) mstatus); }
 }
 
 /**************|MEDELEG REGISTER|****************/
@@ -49,15 +50,15 @@ pub fn write_mstatus(mstatus: usize) {
 /// Write to medeleg register
 pub fn write_medeleg(medeleg: usize) {
 
-  // csrw writes t0 into medeleg
-  unsafe{ asm!("csrw medeleg, t0", in("t0") medeleg); }
+  // csrw writes {} into medeleg
+  unsafe{ asm!("csrw medeleg, {}", in(reg) medeleg); }
 }
 
 /// Write to medelegh (represents the higher order bits of medeleg)
 pub fn write_medelegh(medelegh: usize) {
 
-  // csrw writes t0 into medelegh
-  unsafe{ asm!("csrw medelegh, t0", in("t0") medelegh); }
+  // csrw writes {} into medelegh
+  unsafe{ asm!("csrw medelegh, {}", in(reg) medelegh); }
 }
 
 /**************|MIDELEG REGISTER|****************/
@@ -69,8 +70,8 @@ pub fn write_medelegh(medelegh: usize) {
 /// Write to mideleg register
 pub fn write_mideleg(mideleg: usize) {
 
-  // csrw writes t0 into mideleg
-  unsafe{ asm!("csrw mideleg, t0", in("t0") mideleg); }
+  // csrw writes {} into mideleg
+  unsafe{ asm!("csrw mideleg, {}", in(reg) mideleg); }
 }
 
 /*******************|MRET|***********************/
@@ -87,6 +88,26 @@ pub fn mret() -> ! {
 
 /// Write to mepc register
 pub fn write_mepc(addr: *const()) {
-  // csrw writes t0 into mepc
-  unsafe{ asm!("csrw mepc, t0", in("t0") addr); }
+  // csrw writes {} into mepc
+  unsafe{ asm!("csrw mepc, {}", in(reg) addr); }
+}
+
+/*************|PMPCFG AND PMPADDR|***************/
+
+// The pmpcfg registers control the configuration
+// of the memory ranges defined in the pmpaddr registers. 
+// Read section 3.7.1. of RISC-V privileged doc.
+
+/// Write to pmpcfg0
+pub fn write_pmpcfg0 (pmpcfg0: usize) {
+
+  // csrw writes {} into pmpcfg0
+  unsafe{ asm!("csrw pmpcfg0, {}", in(reg) pmpcfg0);}
+}
+
+/// Write to pmpaddr0
+pub fn write_pmpaddr0 (pmpaddr0: usize) {
+
+  // csrw writes {} into pmpaddr0
+  unsafe{ asm!("csrw pmpaddr0, {}", in(reg) pmpaddr0);}
 }

@@ -1,6 +1,6 @@
 // boot.rs
 
-//! Define the files in src/boot.
+//! Define the submodules in src/boot.
 //!
 //! The code in boot should only be executed in the
 //! context of the booting, thus it is not public. 

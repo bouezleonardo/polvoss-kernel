@@ -3,9 +3,10 @@
 //! Supervisor mode inline assembly functions.
 //!
 //! The following functions execute inline assembly
-//! code for Supervisor mode. Code running in Machine 
-//! mode can also execute these functions as it is a
-//! higher operation mode.
+//! code for Supervisor mode. They access Supervisor
+//! mode Control and Status Registers (CSRs). Code 
+//! running in Machine mode can also execute these 
+//! functions as it is a higher operation mode. 
 
 use core::arch::asm;
 
@@ -26,14 +27,14 @@ pub const SIE_SEIE: usize = 1 << 9;
 pub fn read_sie() -> usize {
   let mut sie: usize;
   
-  // csrr reads sie into t0 register 
-  unsafe { asm!("csrr t0, sie", out("t0") sie); }
+  // csrr reads sie into {} register 
+  unsafe { asm!("csrr {}, sie", out(reg) sie); }
   
   sie
 }
 
 /// Write to sie register
 pub fn write_sie(sie: usize) {
-  // csrw writes t0 into sie register 
-  unsafe { asm!("csrw sie, t0", in("t0") sie); }
+  // csrw writes {} into sie register 
+  unsafe { asm!("csrw sie, {}", in(reg) sie); }
 }

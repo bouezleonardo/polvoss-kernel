@@ -7,3 +7,14 @@ pub const PAGE_SIZE: usize = 4096;
 
 /// Number of CPUs
 pub const NUM_CPU: usize = 1;
+
+/********************|MMIO|**********************/
+
+/// Base address of the memory mapped monitor
+pub const MONITOR_BASE: usize = 0x10000000;
+
+/// Monitor character width
+pub const MONITOR_WIDTH: usize = 80;
+
+/// Monitor character height
+pub const MONITOR_HEIGHT: usize = 25;

@@ -15,6 +15,7 @@ use core::panic::PanicInfo;
 mod config; // Configuration
 mod boot;   // Kernel boot and initialization
 mod riscv;  // Inline assembly code functions
+mod mmio;   // Memory mapped IO functionality
 
 // Panic function
 #[panic_handler]

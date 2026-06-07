@@ -12,6 +12,8 @@ use crate::riscv::machine_mode::{MPP_M,
                                  write_mstatus,
                                  write_mideleg,
                                  write_medeleg,
+                                 write_pmpcfg0,
+                                 write_pmpaddr0,
                                  write_mepc,
                                  mret
                                  };
@@ -40,9 +42,17 @@ pub fn hard_config() -> ! {
   sie |= SIE_SEIE;   // Enable external interrupts
   write_sie(sie);
   
-  // Set mepc to the start funtion address
-  write_mepc(super::start::start as *const());
+  // Allow S mode access all physical memory
+  // Read, Write, Execute and TOR matching
+  write_pmpcfg0(0xf); 
   
+  // All addresses such that 0 <= addr < 0xffffffff
+  // are valid
+  write_pmpaddr0(0xffffffff);
+  
+  // Set mepc to the start funtion address
+  write_mepc(super::start::start as *const ());
+
   // Return from M mode to switch to S mode
   // Will return to the address in mepc
   mret();

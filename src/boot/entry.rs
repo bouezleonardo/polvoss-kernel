@@ -6,7 +6,7 @@
 //! to the Rust kernel code.
 
 use core::arch::naked_asm;
-use crate::config::constants::{NUM_CPU, PAGE_SIZE};
+use crate::config::constants::{NUM_CPU};
 
 /*
 At this point, nothing is ready yet. The stack pointer 
@@ -15,12 +15,18 @@ the kernel must setup a stack for each CPU hart for the
 booting process.
 */
 
-// Each hart will get access to a stack with the page size
-static mut STACK0: [u8;PAGE_SIZE * NUM_CPU] = [0;PAGE_SIZE * NUM_CPU];
+// Stack size in bytes
+const STACK_SIZE: usize = 4096;
 
-/// Entry function of the kernel
+// Each hart will get access to a stack with the page size
+static mut STACK0: [u8;STACK_SIZE * NUM_CPU] = [0;STACK_SIZE * NUM_CPU];
+
+/// Entry function of the kernel. Uses its own memory
+/// section `.text.entry` to guarantee it will be the
+/// first to load.
 #[unsafe(naked)] // Dont add aditional assembly
 #[unsafe(no_mangle)] // Disable name mangling
+#[unsafe(link_section = ".text.entry")] // Own section
 pub extern "C" fn _entry() -> ! {
   // Each stack will begin at stack0 + ((mhartid + 1) * PAGE_SIZE)
   naked_asm!(
@@ -44,7 +50,7 @@ pub extern "C" fn _entry() -> ! {
     "j configure",       // Jump back to call hard_config
 
     stack0 = sym STACK0,
-    page_size = const PAGE_SIZE,
+    page_size = const STACK_SIZE,
     hard_config = sym super::hard_config::hard_config
   );
 }
