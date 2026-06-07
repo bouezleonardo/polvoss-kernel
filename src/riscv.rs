@@ -1,9 +1,9 @@
 // riscv.rs
 
-//! Define the submodules in src/riscv.
+//! Low-level mechanisms to interact with hardware.
 //!
-//! The riscv module contains useful assembly code
-//! to control the hardware in a lower level when
+//! The riscv module contains useful inline assembly
+//! code to control the hardware in a low level when
 //! needed.
 
 // Machine mode inline assembly functions

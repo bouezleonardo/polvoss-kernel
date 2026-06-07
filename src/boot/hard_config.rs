@@ -1,9 +1,10 @@
 // boot/hard_config.rs
 
-//! Configure hardware interrupts and mode of operation.
+//! Configure hardware for the kernel startup.
 //!
-//! Delegate all interrupts and exception to Supervisor
-//! mode, enable interrupts and switch from Machine to
+//! Delegate all interrupts and exceptions to Supervisor
+//! mode, enable interrupts, grant access to all physical
+//! memory to Supervisor mode and switch from Machine to
 //! Supervisor mode calling the start function.
 
 use crate::riscv::machine_mode::{MPP_M, 
@@ -23,7 +24,7 @@ use crate::riscv::supervisor_mode::{SIE_STIE,
                                  read_sie, 
                                  write_sie};
 
-/// Configure hardware interrupts and mode of operation
+/// Hardware configuration function
 pub fn hard_config() -> ! {
   
   // Switch from Machine to Supervisor mode

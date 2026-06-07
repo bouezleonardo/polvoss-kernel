@@ -3,11 +3,19 @@
 
 // main.rs
 
-//! Root to define the modules and panic function.
+//! POLVOSS kernel.
 //!
-//! Define the kernel modules and the panic function. This
-//! is not the entry point of the kernel, look for the
-//! entry.rs file in the boot module.
+//! The Privilegeless Open Learnable
+//! Virtualized Operating System Simulator
+//! (POLVOSS) is an open, easy to understand and
+//! modify operating system simulator for learning
+//! purposes. Therefore, the POLVOSS kernel is
+//! designed to be monolithic, but with highly modular
+//! code organization.
+
+// This file defines the kernel modules and the panic  
+// function. This is not the entry point of the kernel, 
+// look for the entry.rs file in the boot module.
 
 use core::panic::PanicInfo;
 
@@ -17,7 +25,7 @@ mod boot;   // Kernel boot and initialization
 mod riscv;  // Inline assembly code functions
 mod mmio;   // Memory mapped IO functionality
 
-// Panic function
+/// Panic function
 #[panic_handler]
 fn panic(_: &PanicInfo) -> ! {
     loop {}

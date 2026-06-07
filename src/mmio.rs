@@ -1,6 +1,6 @@
 // mmio.rs
 
-//! Define the submodules in src/mmio.
+//! Memory mapped IO mechanisms.
 //!
 //! The mmio module contains the memory mapped IO
 //! functionality to interact with IO devices that
