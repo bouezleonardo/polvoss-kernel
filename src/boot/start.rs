@@ -2,10 +2,12 @@
 
 //! Startup the kernel after hardware configuration.
 //!
-//! Startup the higher kernel funtionality like the
-//! init process and scheduling.
+//! Startup the higher kernel funtionality. This includes
+//! initializing the virtual memory, trap vector, init process 
+//! and scheduling.
 
 use crate::mmio::monitor::*;
+use crate::memory::frame_alloc::{init_frame_alloc};
 
 /// Startup the higher kernel funtionality
 pub fn start() -> ! {
@@ -20,5 +22,12 @@ pub fn start() -> ! {
   monitor_putc_at(b'r', 0, 0);
   monitor_putc_at(b'l', 0, 0);
   monitor_putc_at(b'd', 0, 0);
+  
+  init_frame_alloc();
+  
+  monitor_putc_at(b' ', 0, 0);
+  monitor_putc_at(b'O', 0, 0);
+  monitor_putc_at(b'K', 0, 0);
+  
   loop {}
 }

@@ -5,8 +5,13 @@
 /// Page size in bytes
 pub const PAGE_SIZE: usize = 4096;
 
+/******************|HARDWARE|********************/
+
 /// Number of CPUs
 pub const NUM_CPU: usize = 1;
+
+/// Size of main memory in bytes
+pub const RAM_SIZE: usize = 128 * 1024 * 1024;
 
 /********************|MMIO|**********************/
 
