@@ -1,16 +1,16 @@
-// memory/frame_alloc.rs
-
 //! Allocate and free physical memory frames.
 
 use crate::config::constants::{RAM_SIZE,
                                PAGE_SIZE};
 
-use super::kernel_layout::{skernel_addr,
-                           ekernel_addr};
+use super::memory_layout::{first_addr,
+                           last_addr,
+                           skernel_addr};
 
-use crate::proc::spin::Mutex;
+use crate::proc::spin::{Mutex,
+                        MutexGuard};
 
-use super::types::PhysAddr;
+use crate::riscv::memory_types::Addr;
 
 /// Size of the frame bitmap. RAM_SIZE is divided
 /// by PAGE_SIZE * 8 because the bits map the first 
@@ -22,28 +22,22 @@ const BITMAP_SIZE: usize = RAM_SIZE/(PAGE_SIZE*8);
 /// are used and which are free. For each entry
 /// `0`: free, `1`: used.  
 static BITMAP: Mutex<[u8;BITMAP_SIZE]> = 
-               Mutex::new([0b11111111;BITMAP_SIZE]);
+               Mutex::new([0b00000000;BITMAP_SIZE]);
 
-/// Last frame address
-fn last_addr() -> usize {
-  // Last physical address in RAM
-  skernel_addr() + RAM_SIZE
-}
-
-/// First frame address
-fn first_frame_addr() -> usize {
-  // First multiple of PAGE_SIZE after ekernel
-  (ekernel_addr()+PAGE_SIZE-1)/PAGE_SIZE * PAGE_SIZE
-}
+/// Last allocated frame address.
+/// May help when searching for a new frame
+/// to allocate
+static LATEST: Mutex<u64> = Mutex::new(0);
 
 /// Get indexes to access the bitmap
 /// # Arguments
 ///  - `addr`: bit address to read
 /// # Return
 /// i index for the bitmap array and j index for the bits inside
-fn get_indexes(addr: usize) -> (usize, usize) {
+fn get_indexes(addr: u64) -> (usize, usize) {
   // The count starts from the first address in skernel
-  let index: usize = (addr - skernel_addr())/PAGE_SIZE;
+  let index: usize = 
+  ((addr - skernel_addr())/PAGE_SIZE as u64) as usize;
   
   // Get the position in BITMAP
   let i: usize = index / 8;
@@ -52,7 +46,7 @@ fn get_indexes(addr: usize) -> (usize, usize) {
   let j: usize = index % 8;
   
   if i >= BITMAP_SIZE {   
-    panic!("[read_bit]: index out of bounds.");
+    panic!("[get_indexes]: index out of bounds.");
   }
   
   (i, j)
@@ -63,7 +57,7 @@ fn get_indexes(addr: usize) -> (usize, usize) {
 ///  - `addr`: bit address to read
 /// # Return
 /// The bit referenced by index
-fn read_bit(addr: usize) -> u8 {
+fn read_bit(addr: u64) -> u8 {
   let (i, j): (usize, usize) = get_indexes(addr);
   
   //intr_off();
@@ -83,14 +77,13 @@ fn read_bit(addr: usize) -> u8 {
 /// # Arguments
 ///  - `addr`: bit address to write to
 ///  - `bit`: new bit value
-fn write_bit(addr: usize, bit: u8) {
+fn write_bit(addr: u64, bit: u8) {
   let (i, j): (usize, usize) = get_indexes(addr);
   
   // Mask is used to reset the j bit to 0
   let mask: u8 = !(1 << j);
   
   //intr_off();
-  
   let mut bitmap = BITMAP.lock();
   
   // Reset bit j in the i position
@@ -105,33 +98,58 @@ fn write_bit(addr: usize, bit: u8) {
 /// Get a free frame pointer 
 /// # Return
 /// Option containing the pointer or None
-pub fn kmalloc() -> Option<PhysAddr> {
-  let mut addr: usize = first_frame_addr();
-  let last_addr: usize = last_addr();
+pub fn kmalloc() -> Option<Addr> { 
+  //intr_off();
   
-  while addr < last_addr {
-    // Return the free frame pointer
-    if read_bit(addr) == 0 {
-      write_bit(addr, 1);
-      return Some(PhysAddr::new(addr));
-    }
-    
-    addr += PAGE_SIZE;
+  // Return value
+  let mut ret: Option<Addr> = None;
+  
+  // Last freed or allocated frame addr
+  let mut latest: MutexGuard<u64> = LATEST.lock();
+  
+  // Last physical address
+  let last_addr: u64 = last_addr();
+  
+  // Check if the page after latest is free
+  let next: u64 = *latest+PAGE_SIZE as u64;
+  if next < last_addr && read_bit(next) == 0 {
+    *latest = next;
+    write_bit(next, 1);
+    ret = Some(Addr::new(next));
   }
-  None
+  
+  // If the page after latest was not free
+  if ret.is_none() {
+      let mut addr: u64 = first_addr();
+      
+      while addr < last_addr {
+        // Return the free frame pointer
+        if read_bit(addr) == 0 {
+          *latest = addr;
+          write_bit(addr, 1);
+          ret = Some(Addr::new(addr));
+          break;
+        }
+        
+        addr += PAGE_SIZE as u64;
+      }
+  }
+  
+  //intr_on();
+  ret
 }
 
 /// Free an used frame
 /// # Arguments
 ///  - `ptr`: pointer to the page
-pub fn kfree(ptr: PhysAddr) {
-  let addr: usize = ptr.get_addr();
+pub fn kfree(ptr: Addr) {
+  let addr: u64 = ptr.as_integer();
   
-  if addr % PAGE_SIZE != 0 {
+  if !addr.is_multiple_of(PAGE_SIZE as u64) {
     panic!("[kfree]: address not multiple of PAGE_SIZE.");
   }
   
-  if addr < ekernel_addr() || addr > last_addr() {
+  if addr < first_addr() || addr > last_addr() {
     panic!("[kfree]: address out of bounds.");
   }
   
@@ -142,21 +160,13 @@ pub fn kfree(ptr: PhysAddr) {
   write_bit(addr, 0);
 }
 
-/// Set the usable memory as free and test memory access
-pub fn init_frame_alloc() {  
+/// Set the last freed or allocated frame
+/// to the first usable frame address
+pub fn init_frame_alloc() {
+  // Last freed or allocated frame addr
+  let mut latest: MutexGuard<u64> = LATEST.lock();
+  
   // First address after the end of the kernel that
   // is multiple of PAGE_SIZE.
-  let mut addr: usize = first_frame_addr();
-  
-  let last_addr: usize = last_addr();
-  
-  let mut ptr: PhysAddr = PhysAddr::new(addr);
-  // Mark the usable memory as free
-  while addr < last_addr {
-    // Dereference the pointer to check if it is really valid
-    ptr.read::<u8>();
-    kfree(ptr);
-    addr += PAGE_SIZE;
-    ptr = PhysAddr::new(addr);
-  }
+  *latest = first_addr();
 }

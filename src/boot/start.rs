@@ -7,7 +7,8 @@
 //! and scheduling.
 
 use crate::mmio::monitor::*;
-use crate::memory::frame_alloc::{init_frame_alloc};
+use crate::memory::frame_alloc::{init_frame_alloc, kmalloc, kfree};
+use crate::riscv::memory_types::{Addr};
 
 /// Startup the higher kernel funtionality
 pub fn start() -> ! {
@@ -29,5 +30,14 @@ pub fn start() -> ! {
   monitor_putc_at(b'O', 0, 0);
   monitor_putc_at(b'K', 0, 0);
   
-  loop {}
+  
+  let mut opt: Option<Addr> = kmalloc();
+  while opt.is_some() {
+    kfree(opt.unwrap());
+    opt = kmalloc();
+  }
+  
+  monitor_putc_at(b'A', 0, 0);
+  
+  loop{}
 }

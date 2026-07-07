@@ -2,8 +2,13 @@
 
 //! Define configuration constants.
 
+/*******************|SYSTEM|*********************/
+
 /// Page size in bytes
 pub const PAGE_SIZE: usize = 4096;
+
+/// Maximum number of processes
+pub const MAX_PROC_NUM: usize = 64;
 
 /******************|HARDWARE|********************/
 
@@ -14,6 +19,9 @@ pub const NUM_CPU: usize = 1;
 pub const RAM_SIZE: usize = 128 * 1024 * 1024;
 
 /********************|MMIO|**********************/
+
+/// Base address of the UART devices
+pub const UART0: usize = 0x10000000;
 
 /// Base address of the memory mapped monitor
 pub const M_BASE: usize = 0x10000000;

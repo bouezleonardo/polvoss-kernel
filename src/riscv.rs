@@ -14,3 +14,6 @@ pub mod supervisor_mode;
 
 // Inline assembly utility functions
 pub mod utils;
+
+// Type definitions for memory management
+pub mod memory_types;
