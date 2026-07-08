@@ -12,7 +12,7 @@
 //! guard pages to control overflows. This is achieved
 //! more easily with predefined virtual addresses.
 
-use crate::riscv::memory_types::{Addr};
+use crate::riscv::memory_types::*;
 
 use super::frame_alloc::{kmalloc};
 
@@ -23,7 +23,7 @@ use crate::config::constants::{UART0,
 
 /// Address of the kernel's page table. Should be 
 /// modified only when booting by CPU 0
-static mut KERNEL_PAGETABLE: Addr = Addr::new(0);
+static mut KERNEL_PAGETABLE: PageTable = PageTable::new(Addr::new(0));
 
 /// Create the PTEs for the page tables mapping virtual
 /// addresses starting at va to physical addresses starting
@@ -31,20 +31,24 @@ static mut KERNEL_PAGETABLE: Addr = Addr::new(0);
 /// `va` and `size` must be page-aligned because the paging
 /// scheme is based on [`crate::config::constants::PAGE_SIZE`]
 /// bytes pages.
-/*fn mappages(pagetable: &mut Addr, va: Addr, pa: Addr, 
-            size: usize, perm: u8){
-  let mut addr: Addr;
-  let mut las
+/*fn mappages(pgt: PageTable, va: Addr, pa: Addr, size: usize, 
+perm: u8) -> bool {
+  
+  
 }*/
 
 /// Build the kernel's virtual memory layout by
 /// creating the kernel pagetable 
 pub fn init_virtual_memory(){
   // Allocate a frame for the root
-  let mut pagetable: Addr = kmalloc().expect("[virtual_memory]: Unable to
+  let frame: Addr = kmalloc().expect("[virtual_memory]: Unable to
                             allocate kernel page table.");
   
+  // Create the page table in the frame
+  let pgt: PageTable = PageTable::new(frame);
   
+  // Set all bytes of the page to 0 to clear it
+  pgt.pageset(0);
   
-  unsafe { KERNEL_PAGETABLE = pagetable; }
+  unsafe { KERNEL_PAGETABLE = pgt; }
 }

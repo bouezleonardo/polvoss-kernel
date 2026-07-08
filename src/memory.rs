@@ -10,4 +10,4 @@ pub mod frame_alloc;
 mod memory_layout;
 
 // Virtual memory mechanisms
-mod virtual_memory;
+pub mod virtual_memory;
