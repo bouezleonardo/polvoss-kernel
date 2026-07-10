@@ -4,5 +4,6 @@ version = "26.6.1"
 edition = "2024"
 
 [dependencies]
+libm = "0.2.16"
 # spin = { version = "0.12.0", default-features = false, features = ["spin_mutex", "portable_atomic"] }
 # portable-atomic = { version = "1.13.1", features = ["unsafe-assume-single-core"] }

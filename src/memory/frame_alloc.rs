@@ -1,15 +1,9 @@
 //! Allocate and free physical memory frames.
 
-use crate::config::constants::{RAM_SIZE,
-                               PAGE_SIZE};
-
-use super::memory_layout::{first_addr,
-                           last_addr,
+use crate::config::constants::{RAM_SIZE,PAGE_SIZE};
+use super::memory_layout::{first_addr, last_addr,
                            skernel_addr};
-
-use crate::proc::spin::{Mutex,
-                        MutexGuard};
-
+use crate::proc::spin::{Mutex, MutexGuard};
 use crate::riscv::memory_types::Addr;
 
 /// Size of the frame bitmap. RAM_SIZE is divided
@@ -22,7 +16,7 @@ const BITMAP_SIZE: usize = RAM_SIZE/(PAGE_SIZE*8);
 /// are used and which are free. For each entry
 /// `0`: free, `1`: used.  
 static BITMAP: Mutex<[u8;BITMAP_SIZE]> = 
-               Mutex::new([0b00000000;BITMAP_SIZE]);
+               Mutex::new([0;BITMAP_SIZE]);
 
 /// Last allocated frame address.
 /// May help when searching for a new frame

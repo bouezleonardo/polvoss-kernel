@@ -38,3 +38,42 @@ pub fn write_sie(sie: usize) {
   // csrw writes {} into sie register 
   unsafe { asm!("csrw sie, {}", in(reg) sie); }
 }
+
+/****************|SATP REGISTER|******************/
+
+// The Supervisor Address Translation and Protection
+// (satp) register controls supervisor mode address
+// translation and protection and is used to enable
+// virtual memory. Read section 12.1.11. of RISC-V 
+// privileged doc.
+
+/// No translation or protection
+pub const SATP_BARE: usize = 0 << 31;
+
+/// Page-based 32-bit virtual addressing
+pub const SATP_SV32: usize = 1 << 31;
+
+/// Read satp register
+pub fn read_satp() -> usize {
+  let mut satp: usize;
+  
+  // csrr reads sie into {} register 
+  unsafe { asm!("csrr {}, satp", out(reg) satp); }
+  
+  satp
+}
+
+/// Write to satp register
+pub fn write_satp(satp: usize) {
+  // csrw writes {} into sie register 
+  unsafe { asm!("csrw satp, {}", in(reg) satp); }
+}
+
+/// Flush the Translation lookaside buffer (TLB)
+// This is done to synchonize the use of the page
+// tables and avoid inconsistent states when multiple
+// CPUs working at the same time
+pub fn sfence_vma() {
+  // zero, zero flush all TLB entries
+  unsafe { asm!("sfence.vma zero, zero"); }
+}

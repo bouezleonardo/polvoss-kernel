@@ -21,10 +21,10 @@ pub const RAM_SIZE: usize = 128 * 1024 * 1024;
 /********************|MMIO|**********************/
 
 /// Base address of the UART devices
-pub const UART0: usize = 0x10000000;
+pub const UART0: u64 = 0x10000000;
 
 /// Base address of the memory mapped monitor
-pub const M_BASE: usize = 0x10000000;
+pub const M_BASE: u64 = 0x10000000;
 
 /// Monitor character width
 pub const M_WIDTH: usize = 80;
