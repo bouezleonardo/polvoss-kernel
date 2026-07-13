@@ -30,4 +30,4 @@ pub const M_BASE: u64 = 0x10000000;
 pub const M_WIDTH: usize = 80;
 
 /// Monitor character height
-pub const M_HEIGHT: usize = 25;
+pub const M_HEIGHT: usize = 24;

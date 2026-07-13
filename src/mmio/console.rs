@@ -13,15 +13,6 @@ use crate::config::constants::{M_BASE,
 
 use spin::Mutex;
 
-struct Console {
-  input_buf: [u8;M_HEIGHT],
-  row: usize,
-  column: usize,
-  
-}
-
-static mut CONSOLE: 
-
 ///
 pub fn console_init() {
 
