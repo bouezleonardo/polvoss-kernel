@@ -1,8 +1,6 @@
 #![no_std]   // No standard crate
 #![no_main]  // No main function
 
-// main.rs
-
 //! POLVOSS kernel.
 //!
 //! The Privilegeless Open Learnable
@@ -18,7 +16,6 @@
 // look for the entry.rs file in the boot module.
 
 use core::panic::PanicInfo;
-use crate::mmio::monitor::clear_screen;
 
 // Kernel module definitions
 mod config; // Configuration
@@ -31,7 +28,6 @@ mod proc;
 /// Panic function
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-  clear_screen();
-  print!("PANIC!\r\n{}", info.message());
+  print!("\r\nPANIC! {}", info.message());
   loop {}
 }
