@@ -28,14 +28,18 @@ pub struct MutexGuard<'a, T> {
 }
 
 impl<T> Mutex<T> {
+  /// Create a new mutex
   pub const fn new(value: T) -> Self {
     Self {
       locked: Cell::new(false),
       value: UnsafeCell::new(value),
     }
   }
-
+  
+  /// Lock the Mutex
   pub fn lock(&self) -> MutexGuard<'_, T> {
+    // FIXME: implement the interrupts enable/disable
+    // intr_on();
     while self.locked.get() {
       spin_loop();
     }
@@ -46,12 +50,17 @@ impl<T> Mutex<T> {
   }
 }
 
+/// Define drop for the MutexGuard
 impl<T> Drop for MutexGuard<'_, T> {
+  /// Unlock the Mutex
   fn drop(&mut self) {
     self.mutex.locked.set(false);
+    // FIXME: implement the interrupts enable/disable
+    // intr_off();
   }
 }
 
+/// Define dereferrence for the MutexGuard
 impl<T> Deref for MutexGuard<'_, T> {
   type Target = T;
 
@@ -60,6 +69,7 @@ impl<T> Deref for MutexGuard<'_, T> {
   }
 }
 
+/// Define mutable dereferrence for the MutexGuard
 impl<T> DerefMut for MutexGuard<'_, T> {
   fn deref_mut(&mut self) -> &mut T {
     unsafe { &mut *self.mutex.value.get() }

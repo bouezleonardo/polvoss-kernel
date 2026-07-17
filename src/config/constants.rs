@@ -20,6 +20,9 @@ pub const RAM_SIZE: usize = 128 * 1024 * 1024;
 
 /********************|MMIO|**********************/
 
+///
+pub const PLIC: u64 = 0x0C000000;
+
 /// Base address of the UART devices
 pub const UART0: u64 = 0x10000000;
 

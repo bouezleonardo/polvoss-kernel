@@ -7,14 +7,15 @@
 //! and scheduling.
 
 
-use crate::{print, println, clear_screen};
+use crate::{print, println};
+use crate::mmio::console::{page_up, page_down, clear};
 use crate::memory::frame_alloc::{init_frame_alloc};
 use crate::memory::virtual_memory::{init_virtual_memory, 
                                     use_virtual_memory};
 
 /// Startup the higher kernel funtionality
 pub fn start() -> ! {
-  clear_screen!();
+  clear();
   
   let year = 2026;
   print!("Hello world!\n\rWe are in {}", year);
@@ -23,9 +24,15 @@ pub fn start() -> ! {
   init_virtual_memory();
   use_virtual_memory();
   
-  for i in 1..1000 {
-    //for i in 0..1000000{}
-    print!("({} x {} = {})", i, i, i*i);
+  page_down();
+  
+  for i in 1..100 {
+    print!("\n\r({} x {} = {})", i, i, i*i);
+  }
+  
+  for i in 1..100 {
+    for j in 0..1000000{}
+    page_up();
   }
   
   loop{}

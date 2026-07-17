@@ -16,6 +16,7 @@
 // look for the entry.rs file in the boot module.
 
 use core::panic::PanicInfo;
+use crate::mmio::console::{clear};
 
 // Kernel module definitions
 mod config; // Configuration
@@ -28,6 +29,9 @@ mod proc;
 /// Panic function
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-  print!("\r\nPANIC! {}", info.message());
+  // Clear terminal
+  clear();
+  // Print panic message
+  print!("\r\nPANIC!\n\r{}", info.message());
   loop {}
 }

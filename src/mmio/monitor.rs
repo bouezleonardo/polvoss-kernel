@@ -25,8 +25,11 @@ pub const COLS: usize = M_WIDTH;
 /// Number of lines of the terminal
 pub const LINES: usize = M_HEIGHT*10;
 
+/// The Monitor stores a circular buffer for the lines
+/// of text and read and write offsets that allow the
+/// lines of text in the screen to be scrolled
 pub struct Monitor {
-  chars: [[u8; COLS]; LINES], // Circular buffer for characters 
+  chars: [[u8; COLS]; LINES], // Circular buffer for the lines 
   r_offset: usize, // Read offset.
   w_offset: usize, // Write offset. 
   scroll: bool,    // Enable scrolling
@@ -55,15 +58,20 @@ pub fn write_at(chr: u8, row: usize, col: usize) {
 
 impl Monitor {
   /// Initialize a Monitor 
-  pub const fn new() -> Self {
+  pub const fn new(scr: bool) -> Self {
     Self {
       chars: [[b' ';COLS];LINES],
       r_offset: 0,  
       w_offset: 0, 
-      scroll: true,
+      scroll: scr,
       row: 0,
       col: 0,    
     }
+  }
+  
+  // Change scroll mode
+  pub fn scroll(&mut self, scr:bool) {
+    self.scroll = scr;
   }
   
   /// Read from the chars buffer
@@ -108,11 +116,18 @@ impl Monitor {
       // Check if the data printed to the terminal
       // should scroll with the outputs.
       if self.r_offset == self.w_offset {
-        self.page_down();
+        // Go foward in the buffer
+        self.r_offset += 1;
+        // Refresh screen comparing with the previous offset
+        self.refresh(self.r_offset-1);
       }
       self.scroll_down();
       self.row = M_HEIGHT-1;
     }
+  }
+  
+  fn backspace(&mut self) {
+    self.col -= 1;
   }
   
   fn carriage_return(&mut self) {
@@ -134,8 +149,10 @@ impl Monitor {
       b'\t' => self.tab(),
       _ => {
         // Update the chars buffer
-        self.write_buffer(chr, self.row, self.col, self.w_offset);
-      
+        if self.r_offset == self.w_offset || self.scroll { 
+          self.write_buffer(chr, self.row, self.col, self.w_offset);
+        }
+        
         // Write chr to the screen if it is on view
         if self.r_offset == self.w_offset {
           write_at(chr, self.row, self.col);
@@ -150,7 +167,10 @@ impl Monitor {
         }
       },
     }
-    self.move_cursor(self.row, self.col);
+    
+    if self.r_offset == self.w_offset {
+      self.move_cursor(self.row, self.col);
+    }
   }
   
   /// Write an ASCII string to the screen
@@ -166,32 +186,33 @@ impl Monitor {
   
   /// Go down one line to read
   pub fn page_down(&mut self) {
-    if self.r_offset <= self.w_offset {
+    if self.r_offset < self.w_offset {
+      // Go foward in the buffer
       self.r_offset += 1;
-      self.refresh();
+      // Refresh screen comparing with the previous offset
+      self.refresh(self.r_offset-1);
     }
   }
   
   /// Go up one line to read
   pub fn page_up(&mut self) {
-    if self.r_offset <= 1 {
-      self.r_offset = 0;
-    } else {
+    if self.r_offset > 0 {
+      // Go backwards in the buffer
       self.r_offset -= 1;
+      // Refresh screen comparing with the previous offset
+      self.refresh(self.r_offset+1);
     }
-    self.refresh();
   }
   
   /// Scroll down the data to write more characters
   fn scroll_down(&mut self) {
     self.w_offset += 1;
-    
     // Clean the next last line
     self.clean_line(M_HEIGHT-1);
   }
   
   /// Rewrite the buffer to the screen based on r_offset
-  fn refresh(&self){   
+  fn refresh(&self, old_offset: usize){   
     // old and new chr are used to avoid rewritting the same
     // character again
     let mut old_chr: u8 = 0;
@@ -202,7 +223,7 @@ impl Monitor {
         new_chr = self.read_buffer(i, j, self.r_offset);
                       
         if self.r_offset > 0 {
-          old_chr = self.read_buffer(i, j, self.r_offset-1);
+          old_chr = self.read_buffer(i, j, old_offset);
         }
         
         if new_chr != old_chr {
@@ -213,7 +234,7 @@ impl Monitor {
   }
   
   /// Clear monitor
-  pub fn clear_screen(&mut self) {
+  pub fn clear(&mut self) {
     self.chars = [[b' ';COLS];LINES];
     self.col = 0;
     self.row = 0;
@@ -230,17 +251,6 @@ impl Monitor {
     
     // Clear memory region
     //unsafe { *BUFFER = [[b' ';M_WIDTH];M_HEIGHT] }
-  }
-  
-  // FIXME: uses uart temporarily
-  pub fn backspace(&mut self) {
-    if self.col > 0 {
-      self.col -= 1;
-      uart_backspace();
-    } else if self.row > 0 {
-      self.row -= 1;
-      uart_backspace();
-    }
   }
 }
 

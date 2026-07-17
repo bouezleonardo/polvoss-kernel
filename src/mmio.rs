@@ -7,11 +7,14 @@
 //! are directly mapped into memory. Such devices
 //! include the keyboard and monitor.
 
-// Monitor driver
-pub mod monitor;
+// I\O console
+pub mod console;
 
-// Print functions
+// Print functions for the kernel
 pub mod print;
+
+// Monitor driver
+mod monitor;
 
 // UART driver
 pub mod uart;
