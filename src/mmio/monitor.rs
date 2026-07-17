@@ -69,13 +69,18 @@ impl Monitor {
   /// Read from the chars buffer
   fn read_buffer(&self, i: usize, j: usize, offset: usize) -> u8 {
     // The lines are a circular buffer
-    self.chars[(i + offset) % LINES][j]
+    if i < LINES && j < COLS {
+      return self.chars[(i + offset) % LINES][j];
+    }
+    return 0;
   }
   
   /// Write to the chars buffer
   fn write_buffer(&mut self, chr: u8, i: usize, j: usize, offset: usize) {
     // The lines are a circular buffer
-    self.chars[(i + offset) % LINES][j] = chr;
+    if i < LINES && j < COLS { 
+      self.chars[(i + offset) % LINES][j] = chr;
+    }
   }
   
   /// Clean a line of the chars buffer
@@ -90,14 +95,16 @@ impl Monitor {
     
     /*unsafe { (*BUFFER)[line] = [b' ', COLS]; }*/
   }
-
+  
   // FIXME: uses uart temporarily
-  pub fn line_feed(&mut self) {
-    self.col = 0;
-    if self.row < M_HEIGHT-1 {
-      self.row += 1;
-      uart_putc(b'\n');
-    } else if self.scroll {
+  pub fn move_cursor(&self, row: usize, col: usize) {
+    uart_move_cursor(self.row, self.col);
+  }
+  
+  fn line_feed(&mut self) {
+    self.row += 1;
+
+    if self.row > M_HEIGHT-1 && self.scroll {
       // Check if the data printed to the terminal
       // should scroll with the outputs.
       if self.r_offset == self.w_offset {
@@ -107,11 +114,14 @@ impl Monitor {
       self.row = M_HEIGHT-1;
     }
   }
-
-  // FIXME: uses uart temporarily
-  pub fn carriage_return(&mut self) {
+  
+  fn carriage_return(&mut self) {
     self.col = 0;
-    uart_putc(b'\r');
+  }
+  
+  fn tab(&mut self) {
+    // Set col position to the next multiple 8
+    self.col = (self.col + 7) / 8 * 8;
   }
   
   /// Print a character in the in the monitor
@@ -121,6 +131,7 @@ impl Monitor {
     match chr {
       b'\n' => self.line_feed(),
       b'\r' => self.carriage_return(),
+      b'\t' => self.tab(),
       _ => {
         // Update the chars buffer
         self.write_buffer(chr, self.row, self.col, self.w_offset);
@@ -133,11 +144,13 @@ impl Monitor {
         // Go right a column
         self.col += 1;
         // Go down a line
-        if self.col == M_WIDTH {
+        if self.col >= M_WIDTH && self.scroll {
           self.line_feed();
+          self.carriage_return();
         }
       },
     }
+    self.move_cursor(self.row, self.col);
   }
   
   /// Write an ASCII string to the screen
@@ -178,7 +191,7 @@ impl Monitor {
   }
   
   /// Rewrite the buffer to the screen based on r_offset
-  pub fn refresh(&self){   
+  fn refresh(&self){   
     // old and new chr are used to avoid rewritting the same
     // character again
     let mut old_chr: u8 = 0;
@@ -206,6 +219,7 @@ impl Monitor {
     self.row = 0;
     self.r_offset = 0;
     self.w_offset = 0;
+    self.move_cursor(self.row, self.col);
     
     // FIXME: temporary solution
     for i in 0..M_HEIGHT {

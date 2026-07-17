@@ -24,7 +24,8 @@ pub fn start() -> ! {
   use_virtual_memory();
   
   for i in 1..1000 {
-    print!("\n\r({} x {} = {})", i, i, i*i);
+    //for i in 0..1000000{}
+    print!("({} x {} = {})", i, i, i*i);
   }
   
   loop{}

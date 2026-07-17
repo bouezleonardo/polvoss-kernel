@@ -7,11 +7,13 @@
 //! keyboard input or writing the output to the
 //! monitor.
 
-use crate::config::constants::{M_BASE,
-                               M_WIDTH,
-                               M_HEIGHT};
-
 use spin::Mutex;
+
+struct Console {
+  Monitor mon,
+  Keyboard kyb,
+  cooked: bool,    // Enable/Disable cooked mode
+}
 
 ///
 pub fn console_init() {

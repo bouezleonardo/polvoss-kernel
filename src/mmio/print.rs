@@ -23,8 +23,8 @@ pub fn _print(args: fmt::Arguments, new_line: bool) {
   monitor.write_fmt(args).unwrap();
   
   if new_line {
-    monitor.line_feed();
-    monitor.carriage_return();
+    monitor.putc(b'\n');
+    monitor.putc(b'\r');
   }
   
   //intr_off();
