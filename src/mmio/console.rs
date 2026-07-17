@@ -2,9 +2,9 @@
 
 //! Console for IO.
 //!
-//! When the kernel or a process reads or writes to
+//! When a process reads or writes to
 //! the console, it is responsible for reading the
-//! keyboard input or writing the outuput to the
+//! keyboard input or writing the output to the
 //! monitor.
 
 use crate::config::constants::{M_BASE,

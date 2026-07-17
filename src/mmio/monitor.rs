@@ -40,19 +40,17 @@ pub struct Monitor {
 ///  - `chr`: character to print
 ///  - `row`: row (y position)
 ///  - `col`: col (x position)
-pub fn write_at(chr: u8, row: usize, col: usize) {
-  let offset: usize = col + row * M_WIDTH;
-  
-  assert!(offset < M_HEIGHT * M_WIDTH, "[monitor]: access out of bounds.");
+pub fn write_at(chr: u8, row: usize, col: usize) {  
+  if row < M_HEIGHT && col < M_WIDTH {  
+    // FIXME: uses uart temporarily
+    uart_move_cursor(row, col);
+    uart_putc(chr);
     
-  // FIXME: uses uart temporarily
-  uart_move_cursor(row, col);
-  uart_putc(chr);
-    
-  // Unsafe because this is a raw pointer dereference
-  /*unsafe {    
-    (*BUFFER)[row][col] = chr;
-  }*/
+    // Unsafe because this is a raw pointer dereference
+    /*
+    unsafe { (*BUFFER)[row][col] = chr; }
+    */
+  }
 }
 
 impl Monitor {
@@ -68,72 +66,45 @@ impl Monitor {
     }
   }
   
-  /// Print a character in the in the monitor
-  /// # Arguments
-  ///  - `chr`: character to print
-  pub fn putc(&mut self, chr: u8) {
-    // Check if it is possible to print
-    if self.row >= M_HEIGHT {
-      // If scroll is enabled
-      if self.scroll {
-        // Make the page view follow the line outputs
-        if self.w_offset == self.r_offset {
-          self.page_down();
-        }
-    
-        // Scroll down the data
-        self.scroll_down();
-        
-        // Reset line and
-        self.row = M_HEIGHT-1;
-        self.col = 0;
-      }
-    }
-    // Update the chars buffer
-    self.write_buffer(chr, self.row, self.col);
-      
-    // Write chr to the screen
-    if self.r_offset == self.w_offset {
-      write_at(chr, self.row, self.col);
-    }
-      
-    // Go right a column
-    self.col += 1;
-    // Go down a line
-    if self.col == M_WIDTH {
-      self.col = 0;
-      self.row += 1;
-    }
-  }
-  
   /// Read from the chars buffer
-  fn read_buffer(&self, i: usize, j: usize) -> u8 {
+  fn read_buffer(&self, i: usize, j: usize, offset: usize) -> u8 {
     // The lines are a circular buffer
-    self.chars[(i + self.r_offset) % LINES][j]
+    self.chars[(i + offset) % LINES][j]
   }
   
   /// Write to the chars buffer
-  fn write_buffer(&mut self, chr: u8, i: usize, j: usize) {
+  fn write_buffer(&mut self, chr: u8, i: usize, j: usize, offset: usize) {
     // The lines are a circular buffer
-    self.chars[(i + self.w_offset) % LINES][j] = chr;
+    self.chars[(i + offset) % LINES][j] = chr;
   }
   
   /// Clean a line of the chars buffer
   fn clean_line(&mut self, line: usize) {
-    // The lines are a circular buffer
-    self.chars[(line + self.w_offset) % LINES] = [b' ';COLS];
+    // Clean the buffer
+    self.chars[(line + self.w_offset) % LINES] = [0;COLS];
+    
+    // Clean the screen
+    for j in 0..M_WIDTH {
+      write_at(b' ', line, j);
+    }
+    
+    /*unsafe { (*BUFFER)[line] = [b' ', COLS]; }*/
   }
 
   // FIXME: uses uart temporarily
   pub fn line_feed(&mut self) {
+    self.col = 0;
     if self.row < M_HEIGHT-1 {
       self.row += 1;
       uart_putc(b'\n');
     } else if self.scroll {
+      // Check if the data printed to the terminal
+      // should scroll with the outputs.
       if self.r_offset == self.w_offset {
         self.page_down();
       }
       self.scroll_down();
+      self.row = M_HEIGHT-1;
     }
   }
 
@@ -143,18 +114,40 @@ impl Monitor {
     uart_putc(b'\r');
   }
   
+  /// Print a character in the in the monitor
+  /// # Arguments
+  ///  - `chr`: character to print
+  pub fn putc(&mut self, chr: u8) {
+    match chr {
+      b'\n' => self.line_feed(),
+      b'\r' => self.carriage_return(),
+      _ => {
+        // Update the chars buffer
+        self.write_buffer(chr, self.row, self.col, self.w_offset);
+      
+        // Write chr to the screen if it is on view
+        if self.r_offset == self.w_offset {
+          write_at(chr, self.row, self.col);
+        }
+        
+        // Go right a column
+        self.col += 1;
+        // Go down a line
+        if self.col == M_WIDTH {
+          self.line_feed();
+        }
+      },
+    }
+  }
+  
   /// Write an ASCII string to the screen
   pub fn write_string(&mut self, s: &str) {
     // Make sure the string is ASCII, panic if it is not
     assert!(s.is_ascii(), "[monitor]: non-ASCII string write.");
     
-    // Check for control characters
+    // Put the characters in the screen
     for byte in s.bytes() {
-      match byte {
-        b'\n' => self.line_feed(),
-        b'\r' => self.carriage_return(),
-        _ => self.putc(byte),
-      }
+      self.putc(byte);
     }
   }
   
@@ -162,7 +155,7 @@ impl Monitor {
   pub fn page_down(&mut self) {
     if self.r_offset <= self.w_offset {
       self.r_offset += 1;
-      self.rewrite();
+      self.refresh();
     }
   }
   
@@ -173,7 +166,7 @@ impl Monitor {
     } else {
       self.r_offset -= 1;
     }
-    self.rewrite();
+    self.refresh();
   }
   
   /// Scroll down the data to write more characters
@@ -181,14 +174,27 @@ impl Monitor {
     self.w_offset += 1;
     
     // Clean the next last line
-    self.clean_line(M_HEIGHT);
+    self.clean_line(M_HEIGHT-1);
   }
   
-  /// Rewrite the buffer to the screen
-  pub fn rewrite(&self){
+  /// Rewrite the buffer to the screen based on r_offset
+  pub fn refresh(&self){   
+    // old and new chr are used to avoid rewritting the same
+    // character again
+    let mut old_chr: u8 = 0;
+    let mut new_chr: u8 = 0;
+    
     for i in 0..M_HEIGHT {
       for j in 0..M_WIDTH {
-        write_at(self.read_buffer(i, j), i, j);
+        new_chr = self.read_buffer(i, j, self.r_offset);
+                      
+        if self.r_offset > 0 {
+          old_chr = self.read_buffer(i, j, self.r_offset-1);
+        }
+        
+        if new_chr != old_chr {
+          write_at(new_chr, i, j);
+        }
       }
     }
   }
