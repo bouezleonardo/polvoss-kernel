@@ -26,7 +26,7 @@ pub fn start() -> ! {
   
   page_down();
   
-  for i in 1..100 {
+  for i in 1..1000 {
     print!("\n\r({} x {} = {})", i, i, i*i);
   }
   

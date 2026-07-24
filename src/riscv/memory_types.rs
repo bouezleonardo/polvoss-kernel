@@ -32,6 +32,10 @@ impl Addr {
   pub fn as_integer(&self) -> u64 {
     self.0
   }
+  /// Get the address of a reference
+  pub fn to_addr<T>(&mut self, var: &T) {
+    self.0 = var as *const T as u64;
+  }
   /// Dereference raw pointer and write to address
   pub fn write<T>(&self, value: T) {
     unsafe { (self.0 as *mut T).write(value) }

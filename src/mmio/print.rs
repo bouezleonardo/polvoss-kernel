@@ -1,8 +1,7 @@
-//! Output mechanisms.
+//! Print function and macros for the kernel.
 //!
-//! This module contains output mechanisms and macros
-//! to control a Monitor instance, which enables writing
-//! characters to the screen.
+//! This module contains print functions and macros
+//! for kernel output
 
 use core::fmt;
 use super::console::{write_fmt, putc};

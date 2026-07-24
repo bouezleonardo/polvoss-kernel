@@ -1,9 +1,13 @@
-// proc.rs
-
 //! Processing mechanisms.
 //!
-//! The proc module contains mechanisms for
-//!
-//!
+//! This module contains mechanisms for
+//! syncronization, context switch and 
+//! cpu control
 
+// Spin lock Mutex
 pub mod spin;
+
+// Control data structures
+mod control_types;
+
+pub mod proc;

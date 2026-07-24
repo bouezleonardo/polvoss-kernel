@@ -1,4 +1,4 @@
-//! Virtual memory layout mechanisms
+//! Virtual memory mechanisms
 //!
 //! This module builds the
 //! kernel's virtual memory layout by
@@ -133,3 +133,18 @@ pub fn use_virtual_memory(){
     install_page_table(KERNEL_PAGETABLE);
   }
 }
+
+
+
+/*/// Copy bytes from a user address into
+/// a buffer
+/// # Arguments
+/// - `buf`: byte buffer
+/// - `addr`: source address 
+/// - `len`: number of bytes to copy
+///
+pub fn copy_in(buf: &mut, addr: Addr, len: usize) -> bool {
+  
+  
+
+}*/

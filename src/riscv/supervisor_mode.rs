@@ -77,3 +77,18 @@ pub fn sfence_vma() {
   // zero, zero flush all TLB entries
   unsafe { asm!("sfence.vma zero, zero"); }
 }
+
+/*****************|TP REGISTER|*******************/
+
+// The Thread Pointer (tp) register is used to
+// store the CPU (hart) ID after leaving machine
+// mode
+
+// Read tp register
+pub fn read_tp() -> usize {
+  let mut tp: usize;
+  
+  unsafe { asm!{"li {}, tp", out(reg) tp}; }
+  
+  tp
+}

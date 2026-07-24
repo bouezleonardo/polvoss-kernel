@@ -1,5 +1,3 @@
-// config/constants.rs
-
 //! Define configuration constants.
 
 /*******************|SYSTEM|*********************/
@@ -8,7 +6,7 @@
 pub const PAGE_SIZE: usize = 4096;
 
 /// Maximum number of processes
-pub const MAX_PROC_NUM: usize = 64;
+pub const NUM_PROC: usize = 64;
 
 /******************|HARDWARE|********************/
 
@@ -20,10 +18,13 @@ pub const RAM_SIZE: usize = 128 * 1024 * 1024;
 
 /********************|MMIO|**********************/
 
-///
+/// Base address for Plataform-Level Interrupt
+/// Controller. The PLIC is used to discover which
+/// external device interrupted
 pub const PLIC: u64 = 0x0C000000;
 
-/// Base address of the UART devices
+/// Base address of the UART devices. Used to read
+/// input from the keyboard
 pub const UART0: u64 = 0x10000000;
 
 /// Base address of the memory mapped monitor

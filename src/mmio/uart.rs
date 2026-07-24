@@ -6,9 +6,58 @@
 use core::fmt;
 
 use crate::config::constants::{UART0};
+use super::console::console_intr;
 
-/// Base UART0 register
-const BASE: *mut u8 = UART0 as *mut u8;
+// Receive register
+const RHR: u8 = 0b000;
+// Interrupt enable register
+const IER: u8 = 0b001;
+// Interrupt status register
+const ISR: u8 = 0b010;
+// Line status register 
+const LSR: u8 = 0b101;
+
+// Data ready to be read code
+const LSR_RX_READY: u8 = 1;
+
+
+fn read_register(reg: u8) -> u8 {
+  let addr: u64 = UART0 + reg as u64;
+  unsafe { return (addr as *const u8).read() }
+}
+
+/// Read a character from the receive FIFO (keyboard)
+/// # Return
+/// An option with the character read
+fn uart_getc() -> Option<u8> {
+  let mut opt: Option<u8> = None;
+  
+  // Check the first bit of LSR to see if there are
+  // bytes to be read
+  if read_register(LSR) & LSR_RX_READY == 1 {
+    opt = Some(read_register(RHR));
+  }
+  opt
+}
+
+/// UART interrupt handler. 
+/// dev_intr function calls this handler after identifying
+/// the interrupt is from UART
+pub fn uart_intr() {
+  let mut opt: Option<u8>;
+  
+  // Acknowledge interrupt
+  read_register(ISR);
+  
+  // Read characters typed in the keyboard
+  opt = uart_getc();
+  while opt.is_some() {
+    console_intr(opt.unwrap());
+    opt = uart_getc();
+  }
+}
+
+/********************|TEMPORARY|**********************/
 
 /// Writer for formatted prints to the UART.
 /// It is used only for ANSI control codes.
@@ -16,7 +65,7 @@ struct Writer;
 
 /// Write an ASCII character to the UART
 pub fn uart_putc(chr: u8) {
-  unsafe { BASE.write(chr) }
+  unsafe { (UART0 as *mut u8).write(chr) }
 }
 
 /// Write an ASCII string to the UART

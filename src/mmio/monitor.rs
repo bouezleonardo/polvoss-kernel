@@ -20,10 +20,10 @@ type Buffer = [[u8;M_WIDTH];M_HEIGHT];
 const BUFFER: *mut Buffer = M_BASE as *mut Buffer;
 
 /// Number of columns of the terminal.
-pub const COLS: usize = M_WIDTH;
+const COLS: usize = M_WIDTH;
 
 /// Number of lines of the terminal
-pub const LINES: usize = M_HEIGHT*10;
+const LINES: usize = M_HEIGHT*10;
 
 /// The Monitor stores a circular buffer for the lines
 /// of text and read and write offsets that allow the
@@ -142,7 +142,11 @@ impl Monitor {
   /// Print a character in the in the monitor
   /// # Arguments
   ///  - `chr`: character to print
-  pub fn putc(&mut self, chr: u8) {
+  pub fn putc(&mut self, chr: u8) -> bool {
+    // Check if it is the NUL character
+    if chr == 0 {
+      return false;
+    }
     match chr {
       b'\n' => self.line_feed(),
       b'\r' => self.carriage_return(),
@@ -167,10 +171,10 @@ impl Monitor {
         }
       },
     }
-    
     if self.r_offset == self.w_offset {
       self.move_cursor(self.row, self.col);
     }
+    true
   }
   
   /// Write an ASCII string to the screen
@@ -180,7 +184,7 @@ impl Monitor {
     
     // Put the characters in the screen
     for byte in s.bytes() {
-      self.putc(byte);
+      let _ = self.putc(byte);
     }
   }
   
