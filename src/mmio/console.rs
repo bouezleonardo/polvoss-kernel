@@ -8,6 +8,8 @@
 use core::fmt;
 use core::str::from_utf8;
 use crate::proc::spin::{Mutex, MutexGuard};
+use crate::proc::proc::{either_copyin};
+use crate::riscv::memory_types::{Addr};
 use super::monitor::*;
 
 /// Number of columns of the terminal.
@@ -65,7 +67,7 @@ pub fn page_down() {
 /// # Arguments
 /// - `buf`: character buffer
 /// # Return
-/// Maximum index where the buffer is ready to
+/// Number of positions to go back to avoid cutting codes
 fn process_ansi(buf: &mut [u8]) -> usize {
   // Code's first position
   let mut pos: usize = 0;
@@ -81,12 +83,12 @@ fn process_ansi(buf: &mut [u8]) -> usize {
   }
   // If there is no ESC
   if !found {
-    return buf.len();
+    return 0;
   }
   
   // Check if the code is cut out
   if pos == buf.len()-1 || pos == buf.len()-2 {
-    return pos-1;
+    return buf.len() - pos;
   }
   
   // Check which sequence it is
@@ -96,7 +98,7 @@ fn process_ansi(buf: &mut [u8]) -> usize {
       b'T' => {
         // Switch mode (canonical/raw)
         let mut mode: MutexGuard<bool> = CANONICAL.lock();
-        *mode != *mode;
+        *mode = !(*mode);
         let mut monitor: MutexGuard<Monitor> = MONITOR.lock();
         monitor.scroll(*mode);
       },
@@ -113,51 +115,50 @@ fn process_ansi(buf: &mut [u8]) -> usize {
     buf[pos+2] = 0;
   }
   
-  buf.len()
+  0
 }
 
-/*/// Userspace write() in the console comes here and the data
+/// Userspace write() in the console comes here and the data
 /// is written to the monitor to print to the screen
 /// # Arguments
 /// - `usr_src`: true if the source address is from a user process
-/// - `addr`: source address
+/// - `src`: source address
 /// - `len`: length in bytes of the output
-pub fn console_write(usr_src: bool, addr: u64, len: usize) {
+pub fn console_write(usr_src: bool, src: Addr, len: usize) {
    // Buffer to put the data while it is being transfered
    // from the memory
    let mut buf: [u8;32] = [0;32];
-   // Counter
-   let mut i: usize = 0;
-   // Size of the next batch to be copied
-   let mut copy_len: usize = buf.len();
-   // String slice to be printed
-   let mut s: &str;
+   let mut i: usize = 0; // Counter
+   let mut copy_len: usize = buf.len(); // Size of the next batch to be copied
+   let mut cut: usize; // Avoid cutting ansii codes between two batches
+   let mut s: &str; // String slice to be printed
    
    while i < len {
-     // If the next bach copied
+     // Amount of bytes to be copied is bigger than len
      if copy_len > len - i {
        copy_len = len - i;
      }
      // either_copyin copies data from either the kernel's
      // address space or from some user's space. Break if it
      // fails
-     if !either_copyin(& mut buf, usr_src, addr+i as u64, copy_len) {
+     if !either_copyin(Addr::to_addr(&buf), usr_src, src.clone() + i, copy_len) {
         break;
      }
      copy_len = buf.len();
      
-     // Process escape codes.
-     copy_len = process_ansi(&mut buf);
+     // Process escape codes. There is a chance that a code
+     // gets cut out, so it should not advance past it
+     cut = process_ansi(&mut buf);
      
      // Get a string slice from the buffer
-     s = from_utf8(&buf).expect("[console]: console write failed");
+     s = from_utf8(&buf).expect("[console]: console write failed.");
      
      // write string to the screen
      write_string(s);
      
-     i += copy_len;
+     i += copy_len - cut;
    }
-}*/
+}
 
 /// Userspace read() in the console comes here
 pub fn console_read() {

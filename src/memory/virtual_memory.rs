@@ -134,17 +134,100 @@ pub fn use_virtual_memory(){
   }
 }
 
-
-
-/*/// Copy bytes from a user address into
-/// a buffer
+/// Get the physical address mapped to a user
+/// virtual address.
 /// # Arguments
-/// - `buf`: byte buffer
-/// - `addr`: source address 
-/// - `len`: number of bytes to copy
-///
-pub fn copy_in(buf: &mut, addr: Addr, len: usize) -> bool {
+/// - `pgt`: user pagetable 
+/// - `va`: virtual address
+/// # Return
+/// Physical address associated with the virtual address
+pub fn 
+walkaddr(mut pgt: PageTable, va: Addr) -> Option<Addr> {  
+  // Leaf PTE
+  let mut pte: PageTableEntry; 
+  // Leaf PTE index inside the page table
+  let mut index: usize; 
+  // Return from walk function 
+  let mut opt: Option<(PageTable, usize)>;  
   
+  // Check of va is within boundries
+  if va.as_integer() > MAX_VIRT_ADDR as u64 {
+    return None;
+  }
   
+  // Walk the page table until the leaf PTE for the
+  // address is found 
+  opt = walk(pgt.clone(), va, false);
+  if opt.is_none() {
+    return None;
+  }
+  // Get the leaf page table and index of the PTE
+  (pgt, index) = opt.unwrap();
+  // Get the PTE from the page table
+  pte = pgt.read_pte(index);
+    
+  // If this PTE is valid
+  if !pte.check_fields(PTE_V) {
+    return None;
+  }
+  // If this PTE is for users
+  if !pte.check_fields(PTE_U) {
+    return None;
+  }
+  Some(pte.to_addr())
+}
 
-}*/
+/// Copy bytes from a user source address into
+/// a destination address in the kernel.
+/// # Arguments
+/// - `pgt`: user pagetable 
+/// - `dst`: destination address
+/// - `src`: source address 
+/// - `len`: number of bytes to copy
+/// # Return
+/// `true` if the copy is successful, `false` otherwise.
+pub fn 
+copyin(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize) 
+-> bool {
+  let mut va: Addr; // Virt addr of the previous page of src
+  let mut pa: Addr; // Physical addr that va maps
+  let mut opt: Option<Addr>; // Return of walkaddr
+  let mut bytes: usize; // Number of bytes to copy from a page
+  let mut offset: usize; // Offset within a page
+  
+  // Loops going through pages until 
+  while len > 0 {
+    // Get the address of the closest previous page because
+    // the virtual addresses mapped on the pagetable must
+    // be page aligned
+    va = prev_page(src.clone());
+    
+    // Get the physical address of the page that va maps
+    opt = walkaddr(pgt.clone(), va.clone());
+    if opt.is_none() {
+      return false;
+    }
+    // Physical address of the page
+    pa = opt.unwrap();
+    
+    // Number of bytes that will be copied from this page
+    // Bytes from src to the end of the page will be copied
+    // Page: |*......*.....|
+    //        va    src     end
+    offset = (src.as_integer() - va.as_integer()) as usize; 
+    bytes = PAGE_SIZE - offset;
+    
+    // Amount of bytes to be copied is bigger than len
+    if bytes >= len {
+      bytes = len;
+    }
+    // Copy to the destination
+    dst.copy::<u8>(pa + offset, bytes);
+    
+    len -= bytes;
+    dst += bytes;
+    src = va + PAGE_SIZE; // Next page
+  }
+  
+  true
+}

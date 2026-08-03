@@ -17,6 +17,9 @@ use super::supervisor_mode::{write_satp, sfence_vma, SATP_SV32};
 
 /********************|TYPES AND CONSTANTS|**********************/
 
+/// Max virtual address for the Sv32 paging scheme
+pub const MAX_VIRT_ADDR: usize = usize::MAX;
+
 /// Wrapper for an u64 that represents a memory address.
 // The physical addresses in Sv32 are 34 bits, while
 // the virtual ones are 32 bits, thus an u64 is suficient
@@ -28,13 +31,17 @@ impl Addr {
   pub const fn new(addr: u64) -> Self {
     Self(addr)
   }
+  /// Get the address of a reference
+  pub fn to_addr<T>(var: &T) -> Self {
+    Self(var as *const T as u64)
+  }
   /// Get the address as an u64
   pub fn as_integer(&self) -> u64 {
     self.0
   }
-  /// Get the address of a reference
-  pub fn to_addr<T>(&mut self, var: &T) {
-    self.0 = var as *const T as u64;
+  /// Get the address as a pointer
+  pub fn as_ptr<T>(&self) -> *const T {
+    self.0 as *const T
   }
   /// Dereference raw pointer and write to address
   pub fn write<T>(&self, value: T) {
@@ -44,9 +51,14 @@ impl Addr {
   pub fn read<T>(&self) -> T {
     unsafe { (self.0 as *const T).read() }
   }
-  /// Write `value` to `count` bytes
-  pub fn memset(&self, value: u8, count: usize) {
-    unsafe { (self.0 as *mut u8).write_bytes(value, count) }
+  /// Write `value` to `len` bytes
+  pub fn memset(&self, value: u8, len: usize) {
+    unsafe { (self.0 as *mut u8).write_bytes(value, len) }
+  }
+  /// Copy `len` bytes from `src`
+  pub fn copy<T>(&self, src: Addr, len: usize) {
+    let ptr: *const T = src.as_ptr::<T>();
+    unsafe { (self.0 as *mut T).copy_from(ptr, len) }
   }
 }
 
@@ -104,8 +116,8 @@ impl PageTableEntry {
     Addr::new(((self.0 as u64) >> 10) << 12)
   }
   /// Check if a PTE field (UXWRV) is set
-  pub fn check_fields(&self, fields: u8) -> bool {
-    if self.0 & fields as usize == 1 {
+  pub fn check_fields(&self, field: u8) -> bool {
+    if self.0 & field as usize != 0 {
       return true;
     }
     false
@@ -249,6 +261,7 @@ pub fn walk(mut pgt: PageTable, va: Addr, alloc: bool)
   Some((pgt, index))
 }
 
+// Install pagetable in the satp register
 pub fn install_page_table(addr: u64) {
   // Use Sv32 and remove offset from address
   let satp: usize = SATP_SV32 | (addr >> 12) as usize; 
@@ -260,4 +273,9 @@ pub fn install_page_table(addr: u64) {
   
   // Flush TLB
   sfence_vma();
+}
+
+// Previous address multiple of page or 0 based on addr
+pub fn prev_page(addr: Addr) -> Addr {
+  Addr::new(addr.as_integer() & !(PAGE_SIZE - 1) as u64)
 }
