@@ -10,7 +10,7 @@ use core::arch::asm;
 
 /**************|MSTATUS REGISTER|****************/
 
-// The Machine Status Register (mstatus) register 
+// The Machine Status (mstatus) register 
 // contains information about a CPU's operating
 // state. Read section 3.1.6. of RISC-V privileged
 // doc.
@@ -87,7 +87,7 @@ pub fn mret() -> ! {
 }
 
 /// Write to mepc register
-pub fn write_mepc(addr: *const()) {
+pub fn write_mepc(addr: usize) {
   // csrw writes {} into mepc
   unsafe{ asm!("csrw mepc, {}", in(reg) addr); }
 }

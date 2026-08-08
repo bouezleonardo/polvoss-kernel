@@ -10,6 +10,39 @@
 
 use core::arch::asm;
 
+/**************|sstatus REGISTER|****************/
+
+// The Supervisor Status (sstatus) register 
+// contains information about a CPU's operating
+// state. Read section 12.1.1. of RISC-V privileged
+// doc.
+
+/// SPP Supervisor mode code
+pub const SPP_S: usize = 1 << 8;
+
+/// SPP User mode code
+pub const SPP_U: usize = 0 << 8;
+
+/// Global enable bit for interrupts
+pub const SSTATUS_SIE: usize = 1 << 1;
+
+/// Read sstatus register
+pub fn read_sstatus() -> usize {
+  let mut sstatus: usize;
+  
+  // csrr reads sstatus into {} register 
+  unsafe{ asm!("csrr {}, sstatus", out(reg) sstatus); }
+  
+  sstatus
+}
+
+/// Write to sstatus register
+pub fn write_sstatus(sstatus: usize) {
+
+  // csrw writes {} into sstatus
+  unsafe{ asm!("csrw sstatus, {}", in(reg) sstatus); }
+}
+
 /****************|SIE REGISTER|******************/
 
 // The Supervisor interrupt-enable register (sie) 
@@ -88,7 +121,124 @@ pub fn sfence_vma() {
 pub fn read_tp() -> usize {
   let mut tp: usize;
   
-  unsafe { asm!{"li {}, tp", out(reg) tp}; }
+  unsafe { asm!{"mv {}, tp", out(reg) tp}; }
   
   tp
+}
+
+/***************|STVEC REGISTER|*****************/
+
+// The Supervisor Trap Vector Base Address (stvec)
+// register holds the trap vector's address. When
+// a trap (interrupt or exception) happens, the
+// code in the address saved in stvec will be 
+// executed. Read section 12.1.2. of RISC-V 
+// privileged doc.
+
+// Write stvec register
+pub fn write_stvec(stvec: usize) {
+  unsafe { asm!{"csrw stvec, {}", in(reg) stvec}; }
+}
+
+/**************|SCAUSE REGISTER|****************/
+
+// The  Supervisor Cause (scause) register 
+// indicates which interrupt or exception happened.
+// Read section 12.1.8. of RISC-V privileged doc.
+
+// Read scause register
+pub fn read_scause() -> usize {
+  let mut scause: usize;
+  
+  unsafe { asm!{"csrr {}, scause", out(reg) scause}; }
+  
+  scause
+}
+
+/**************|STVAL REGISTER|****************/
+
+// The  Supervisor Trap Value (stval) register 
+// offers additional information about the trap.
+// Read section 12.1.9. of RISC-V privileged doc.
+
+// Read scause register
+pub fn read_stval() -> usize {
+  let mut stval: usize;
+  
+  unsafe { asm!{"csrr {}, stval", out(reg) stval}; }
+  
+  stval
+}
+
+/*******************|SRET|*********************/
+
+// The sret instruction returns from Supervisor
+// mode and switches to the mode specified in SPP.
+// It returns to the address saved in sepc. Read
+// section 12.1.7 of RISC-V privileged doc.
+
+/// Return from Supervisor mode
+pub fn sret() -> ! {
+  unsafe{ asm!("sret", options(noreturn)); }
+}
+
+/// Write to sepc register
+pub fn write_sepc(addr: usize) {
+  unsafe{ asm!("csrw sepc, {}", in(reg) addr); }
+}
+
+// Read sepc register
+pub fn read_sepc() -> usize {
+  let mut sepc: usize;
+  
+  unsafe { asm!{"csrr {}, sepc", out(reg) sepc}; }
+  
+  sepc
+}
+
+/*******************|TIME|*********************/
+
+// The time register stores a count that the
+// hardware increments at a steady rate. The 
+// stimecmp register contains a value of time in
+// which there will be a timer interrupt. Read
+// sections 12.1.4 and 12.1.12 of RISC-V 
+// privileged doc.
+
+// In RISC-V 32 bits, time and stimecmp are split in two
+// halfs of 32 bits.
+
+// Read time register
+pub fn read_time() -> u64 {
+  let mut time_l: u32;
+  let mut time_u: u32;
+  
+  unsafe {
+    // Low 32 bits of time register
+    asm!{"csrr {}, time", out(reg) time_l};
+    // Upper 32 bits of time register
+    asm!{"csrr {}, timeh", out(reg) time_u};
+  }
+  
+  time_l as u64 + (time_u as u64) << 32 
+}
+
+/// Write to the full stimecmp register
+pub fn write_stimecmp(count: u64) {
+  unsafe{
+    // Low 32 bits of stimecmp register
+    asm!("csrw stimecmp, {}", in(reg) count as u32);
+    // Upper 32 bits of stimecmp register
+    asm!("csrw stimecmph, {}", in(reg) (count >> 32) as u32);
+  }
+}
+
+/****************|AUXILIARY|*****************/
+
+/// Check if interrupts are globally enabled
+pub fn intr_enabled() -> bool {
+  if read_sstatus() & SSTATUS_SIE == 1 {
+    return true;
+  }
+  false
 }

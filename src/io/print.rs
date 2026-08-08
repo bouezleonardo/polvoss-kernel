@@ -20,7 +20,7 @@ pub fn _print(args: fmt::Arguments, new_line: bool) {
 #[macro_export]
 macro_rules! print {
   ($($arg:tt)*) => {{
-    crate::mmio::print::_print(format_args!($($arg)*), false);
+    crate::io::print::_print(format_args!($($arg)*), false);
   }};
 }
 
@@ -28,6 +28,6 @@ macro_rules! print {
 #[macro_export]
 macro_rules! println {
   ($($arg:tt)*) => {{
-    crate::mmio::print::_print(format_args!($($arg)*), true);
+    crate::io::print::_print(format_args!($($arg)*), true);
   }};
 }

@@ -2,7 +2,7 @@
 //!
 //! This module contains mechanisms for
 //! syncronization, context switch and 
-//! cpu control
+//! cpu control.
 
 // Spin lock Mutex
 pub mod spin;
@@ -10,4 +10,4 @@ pub mod spin;
 // Control data structures
 mod control_types;
 
-pub mod proc;
+pub mod processing;

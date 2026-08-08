@@ -52,7 +52,7 @@ pub fn hard_config() -> ! {
   write_pmpaddr0(0xffffffff);
   
   // Set mepc to the start funtion address
-  write_mepc(super::start::start as *const ());
+  write_mepc(super::start::start as *const () as usize);
 
   // Return from M mode to switch to S mode
   // Will return to the address in mepc

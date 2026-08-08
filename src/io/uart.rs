@@ -23,7 +23,7 @@ const LSR_RX_READY: u8 = 1;
 
 fn read_register(reg: u8) -> u8 {
   let addr: u64 = UART0 + reg as u64;
-  unsafe { return (addr as *const u8).read() }
+  unsafe { (addr as *const u8).read() }
 }
 
 /// Read a character from the receive FIFO (keyboard)
@@ -92,7 +92,7 @@ fn uart_print(args: fmt::Arguments){
 #[macro_export]
 macro_rules! uart_print {
   ($($arg:tt)*) => {{
-    $crate::mmio::uart::uart_print(format_args!($($arg)*));
+    $crate::io::uart::uart_print(format_args!($($arg)*));
   }};
 }
 

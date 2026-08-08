@@ -16,15 +16,16 @@
 // look for the entry.rs file in the boot module.
 
 use core::panic::PanicInfo;
-use crate::mmio::console::{clear};
+use crate::io::console::{clear};
 
 // Kernel module definitions
 mod config; // Configuration
 mod boot;   // Kernel boot and initialization
 mod riscv;  // Inline assembly code functions
 mod memory; // Memory allocation and layout
-mod mmio;   // Memory mapped IO functionality
-mod proc;
+mod io;     // IO functionality
+mod proc;   // Processing mechanisms
+mod trap;   // Trap handling
 
 /// Panic function
 #[panic_handler]

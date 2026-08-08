@@ -8,7 +8,7 @@
 
 
 use crate::{print, println};
-use crate::mmio::console::{page_up, page_down, clear};
+use crate::io::console::{page_up, page_down, clear};
 use crate::memory::frame_alloc::{init_frame_alloc};
 use crate::memory::virtual_memory::{init_virtual_memory, 
                                     use_virtual_memory};

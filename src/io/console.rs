@@ -8,7 +8,7 @@
 use core::fmt;
 use core::str::from_utf8;
 use crate::proc::spin::{Mutex, MutexGuard};
-use crate::proc::proc::{either_copyin};
+use crate::proc::processing::{either_copyin};
 use crate::riscv::memory_types::{Addr};
 use super::monitor::*;
 

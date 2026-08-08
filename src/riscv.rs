@@ -1,5 +1,3 @@
-// riscv.rs
-
 //! Low-level mechanisms to interact with hardware.
 //!
 //! The riscv module contains useful inline assembly

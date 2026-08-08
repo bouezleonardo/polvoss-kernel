@@ -1,7 +1,7 @@
 
 
 use super::control_types::*;
-use super::spin::Mutex;
+use super::spin::*;
 use crate::memory::virtual_memory::{copyin};
 use crate::config::constants::{NUM_PROC, NUM_CPU};
 use crate::riscv::memory_types::{Addr, PageTable};
@@ -11,7 +11,7 @@ use crate::riscv::supervisor_mode::{read_tp};
 static PCB: [Mutex<Pcb>; NUM_PROC] = [const{Mutex::new(Pcb::new())}; NUM_PROC];
 
 /// Array of Cpu structs for each CPU
-static mut CPU: [Cpu; NUM_CPU] = [const{Cpu::new()}; NUM_CPU];
+static CPU: [Mutex<Cpu>; NUM_CPU] = [const{Mutex::new(Cpu::new())}; NUM_CPU];
 
 /// Next Process ID available
 static NEXT_PID: Mutex<usize> = Mutex::new(1);
@@ -30,19 +30,17 @@ pub fn cpu_id() -> usize {
 /// Must be called with interrupts disabled
 /// to avoid a process changing CPUs while
 /// holding the previous CPU's data
-pub fn current_cpu() -> Addr {
+pub fn current_cpu() -> &'static Mutex<Cpu> {
   let id: usize = cpu_id();
 
-  // Get the address of the CPU struct
-  unsafe {Addr::to_addr(&CPU[id])}
+  // Get the CPU reference
+  &CPU[id]
 }
 
-/// Get the current PCB address in this cpu
-pub fn current_proc() -> Option<Addr> {
-  //push_off();
-  let cpu: Cpu = current_cpu().read::<Cpu>();
-  let proc: Option<Addr> = cpu.proc;  
-  //pop_off();
+/// Get the current PCB in this cpu
+pub fn current_proc() -> Option<&'static Mutex<Pcb>> {
+  let cpu: MutexGuard<Cpu> = current_cpu().lock();
+  let proc: Option<&'static Mutex<Pcb>> = cpu.proc;
   
   proc
 }
@@ -61,11 +59,12 @@ either_copyin(dst: Addr, usr_src: bool, src: Addr, len: usize)
 -> bool {
   // If it is an user address
   if usr_src {
-    // Get the current process PCB address
-    let proc: Addr = current_proc().expect("[proc]: either_copyin.");
+    // Get the current process PCB
+    let proc: &'static Mutex<Pcb>;
+    proc = current_proc().expect("[proc]: either_copyin.");
     
     // Copy from the user process using its pagetable
-    return copyin(proc.read::<Pcb>().pagetable, dst, src, len);
+    return copyin(proc.lock().pagetable.clone(), dst, src, len);
   }
   
   // Copy len bytes from src to dst
@@ -74,3 +73,6 @@ either_copyin(dst: Addr, usr_src: bool, src: Addr, len: usize)
   true
 }
 
+pub fn sleep(chan: &Mutex<u64>) {
+   //let proc_addr: Addr = current_proc()
+}
