@@ -8,13 +8,13 @@ use crate::riscv::memory_types::{Addr, PageTable};
 use crate::trap::trap_types::{Context, Trapframe};
 
 /// Possible process states
-#[derive(Copy, Clone)]
-enum ProcState {
+#[derive(Copy, Clone, PartialEq)]
+pub enum ProcState {
   Unused,  // Free PCB
   New,     // The process is being prepared to run
   Ready,   // Process ready to run
   Running, // Process has the CPU
-  Sleeping,// Process is sleeping
+  Waiting, // Process is waiting (not busy waiting)
   Zombie,  // A child terminated, but the parent did not wait()
 }
 
@@ -24,7 +24,7 @@ pub struct Pcb {
   pub killed: bool,     // Process is killed
   pub exit_status: i32, // Exit status
   pub pid: usize,       // Process ID
-  pub chan: Option<u64>, // Channel that the process is sleeping,
+  pub chan: Option<u64>, // Channel the process is waiting
   
   // Private fields that only one context accesses at a time
   pub kstack: Addr,     // Address of the process kernel stack

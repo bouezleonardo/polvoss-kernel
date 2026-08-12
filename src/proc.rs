@@ -7,6 +7,9 @@
 // Spin lock Mutex
 pub mod spin;
 
+// Syncronization
+pub mod sync;
+
 // Control data structures
 mod control_types;
 
