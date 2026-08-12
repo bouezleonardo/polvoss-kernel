@@ -24,7 +24,6 @@ pub struct Pcb {
   pub killed: bool,     // Process is killed
   pub exit_status: i32, // Exit status
   pub pid: usize,       // Process ID
-  pub chan: Option<u64>, // Channel the process is waiting
   
   // Private fields that only one context accesses at a time
   pub kstack: Addr,     // Address of the process kernel stack
@@ -43,7 +42,6 @@ impl Pcb {
       killed: false,
       exit_status: 0,
       pid: 0,
-      chan: None,
       kstack: Addr::new(0),
       size: 0,
       pagetable: PageTable::new(Addr::new(0)),

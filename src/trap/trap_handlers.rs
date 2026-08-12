@@ -6,12 +6,17 @@
 use crate::riscv::supervisor_mode::*;
 use crate::proc::processing::{cpu_id, current_proc};
 use crate::proc::spin::*;
+use crate::proc::sync::*;
 use crate::config::constants::{TICK_TIME, MILISECOND};
 use super::kernelvec::kernelvec;
 use super::trap_codes::*;
 
-/// Count the number
+/// Count the number of ticks
 pub static TICKS: Mutex<u64> = Mutex::new(0);
+
+/// Condition variable to syncronize processes
+/// waiting for ticks
+pub static TICKS_CVAR: Condvar = Condvar::new();
 
 /// Write kernelvec address to stvec register
 pub fn install_kernelvec() {
@@ -42,10 +47,8 @@ fn clock_intr() {
     // Increment ticks
     let mut ticks: MutexGuard<u64> = TICKS.lock();
     *ticks += 1;
-    // Wake up every process on channel the same
-    // value as TICKS' address. This should affect
-    // only paused processes
-    //wakeup(Addr::to_addr(&TICKS).as_integer());
+    // Wakes up all sleeping processes on this condvar
+    TICKS_CVAR.notify_all();
   }
   // Write next time to have a clock interrupt
   write_stimecmp(read_time()+TICK_TIME*MILISECOND);

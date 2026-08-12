@@ -15,3 +15,6 @@ pub mod utils;
 
 // Type definitions for memory management
 pub mod memory_types;
+
+// Context switch mechanism
+pub mod context_switch;

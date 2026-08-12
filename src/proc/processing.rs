@@ -5,11 +5,11 @@ use crate::trap::trap_types::Context;
 use crate::memory::virtual_memory::{copyin};
 use crate::config::constants::{NUM_PROC, NUM_CPU};
 use crate::riscv::memory_types::{Addr, PageTable};
-use crate::riscv::supervisor_mode::{read_tp};
-use crate::riscv::supervisor_mode::intr_enabled;
+use crate::riscv::supervisor_mode::{read_tp, intr_enabled};
+use crate::riscv::context_switch::*;
 
 /// Array of Pcb struct Mutexes for each process
-pub static PCB: [Mutex<Pcb>; NUM_PROC] = [const{Mutex::new(Pcb::new())}; NUM_PROC];
+static PCB: [Mutex<Pcb>; NUM_PROC] = [const{Mutex::new(Pcb::new())}; NUM_PROC];
 
 /// Array of Cpu structs for each CPU
 static mut CPU: [Cpu; NUM_CPU] = [const{Cpu::new()}; NUM_CPU];
@@ -43,13 +43,13 @@ pub fn set_current_proc(proc: Option<&'static Mutex<Pcb>>) {
   unsafe {CPU[id].proc = proc;}
 }
 /// Get the current CPU's context.
-pub fn current_context() -> Context {
+pub fn cpu_context() -> Context {
   let id = cpu_id();
   assert!(!intr_enabled(), "[cpus]: interrupts enabled.");
   unsafe {CPU[id].ctx}
 }
 /// Set the current CPU's context.
-pub fn set_current_context(ctx: Context) {
+pub fn set_cpu_context(ctx: Context) {
   let id = cpu_id();
   assert!(!intr_enabled(), "[cpus]: interrupts enabled.");
   unsafe {CPU[id].ctx = ctx;}
@@ -105,4 +105,48 @@ either_copyin(dst: Addr, usr_src: bool, src: Addr, len: usize)
   dst.copy::<u8>(src, len);
   
   true
+}
+
+pub fn scheduler() {
+
+
+}
+
+/// Call scheduler from a process context. Drops
+/// the process mutex guard before calling the
+/// scheduler. The caller should change the process
+/// state from 'Running' before calling.
+/// # Arguments
+/// - `proc`: process mutex guard to be dropped
+pub fn call_scheduler(mut proc: MutexGuard<Pcb>) {
+  if proc.state == ProcState::Running {
+    panic!("[proc]: process state is still 'Running'.");
+  }
+  if intr_enabled() {
+    panic!("[proc]: interrupts enabled before scheduler.");
+  }
+  if cpu_noff() != 1 {
+    // The process should hold only 1 mutex (its own guard)
+    // before calling the scheduler 
+    panic!("[proc]: noff different than 1 before scheduler.");
+  }
+  
+  // Get process context
+  let proc_ctx: *mut Context = &mut proc.ctx as *mut Context;
+  let cpu_ctx: *mut Context;
+  unsafe{
+    cpu_ctx = &mut CPU[cpu_id()].ctx as *mut Context;
+  }
+  
+  // Save the intena
+  let intena: bool = cpu_intena();
+  
+  // Drops mutex guard
+  drop(proc);
+  
+  // Context switch from proc to the scheduler
+  switch(proc_ctx, cpu_ctx);
+  
+  // Process coming back from scheduler, restore intena
+  set_cpu_intena(intena);
 }
