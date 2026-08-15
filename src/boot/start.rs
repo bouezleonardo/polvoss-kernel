@@ -8,7 +8,7 @@
 
 
 use crate::{print, println};
-use crate::io::console::{page_up, page_down, clear};
+use crate::io::console::{page_up, page_down, clear, backspace};
 use crate::memory::frame_alloc::{init_frame_alloc};
 use crate::memory::virtual_memory::{init_virtual_memory, 
                                     use_virtual_memory};
@@ -26,13 +26,27 @@ pub fn start() -> ! {
   
   page_down();
   
-  for i in 1..1000 {
+  for i in 1..100 {
     print!("\n\r({} x {} = {})", i, i, i*i);
   }
   
+  for i in 1..3000 {
+    for j in 0..10000{}
+    backspace();
+  }
+  
   for i in 1..100 {
-    for j in 0..1000000{}
+    print!("\n\r({} x {} = {})", i, i, i*i);
+  }
+  
+  for i in 1..5000 {
+    for j in 0..10000{}
     page_up();
+  }
+  
+  for i in 1..3000 {
+    for j in 0..100000{}
+    backspace();
   }
   
   loop{}
