@@ -48,9 +48,6 @@ pub fn start() -> ! {
     
     intr_on();
     
-    print!("\n\r sstatus: {:#b}\n\r sie: {:#b}\n\r sip: {:#b}", 
-          read_sstatus(), read_sie(), read_sip());
-    
     //generate_interrupt();
     
     /*

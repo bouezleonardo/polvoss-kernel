@@ -261,6 +261,18 @@ pub fn console_intr(chr: u8) {
           input.e_offset -= 1;
         }
       },
+      CTRL_H => { // Backspace
+        if input.e_offset > input.w_offset {
+          backspace();
+          input.e_offset -= 1;
+        }
+      },
+      b'\x7F' => { // Delete
+        if input.e_offset > input.w_offset {
+          backspace();
+          input.e_offset -= 1;
+        }
+      },
       _ => { // Character for the user
         // Check if there is space for the input
         if input.e_offset-input.r_offset < INPUT_BUF_SIZE && chr != 0 {
