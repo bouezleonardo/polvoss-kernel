@@ -10,7 +10,11 @@ pub mod trap_types;
 mod kernelvec;
 
 // Rust trap handlers
-mod trap_handlers;
+pub mod trap_handlers;
 
 // Trap codes for interrupts and exceptions
 mod trap_codes;
+
+// Platform Level Interrupt Controller (PLIC)
+// mechanisms
+pub mod plic;

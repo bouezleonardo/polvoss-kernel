@@ -50,6 +50,9 @@ pub fn write_sstatus(sstatus: usize) {
 // interrupts in Supervisor mode. Read section
 // 12.1.3. of RISC-V privileged doc.
 
+/// sie software interrupts enable code
+pub const SIE_SSIE: usize = 1 << 1;
+
 /// sie timer interrupts enable code
 pub const SIE_STIE: usize = 1 << 5;
 
@@ -124,6 +127,12 @@ pub fn read_tp() -> usize {
   unsafe { asm!{"mv {}, tp", out(reg) tp}; }
   
   tp
+}
+
+/// Write to satp register
+pub fn write_tp(tp: usize) {
+  // csrw writes {} into tp register 
+  unsafe { asm!("csrw satp, {}", in(reg) tp); }
 }
 
 /***************|STVEC REGISTER|*****************/
@@ -233,12 +242,35 @@ pub fn write_stimecmp(count: u64) {
   }
 }
 
+/// Read to the full stimecmp register
+pub fn read_stimecmp() -> u64{
+  let count_l: u32;
+  let count_h: u32;
+  
+  unsafe{
+    // Low 32 bits of stimecmp register
+    asm!("csrr {}, stimecmp", out(reg) count_l);
+    // Upper 32 bits of stimecmp register
+    asm!("csrr {}, stimecmph", out(reg) count_h);
+  }
+  
+  count_l as u64 + count_h as u64
+}
+
 /****************|AUXILIARY|*****************/
 
 /// Check if interrupts are globally enabled
 pub fn intr_enabled() -> bool {
-  if read_sstatus() & SSTATUS_SIE == 1 {
+  if read_sstatus() & SSTATUS_SIE == SSTATUS_SIE {
     return true;
   }
   false
+}
+/// Enable interrupts globally
+pub fn intr_on() {
+  write_sstatus(read_sstatus() | SSTATUS_SIE);
+}
+/// Disable interrupts globally
+pub fn intr_off() {
+  write_sstatus(read_sstatus() & !SSTATUS_SIE);
 }

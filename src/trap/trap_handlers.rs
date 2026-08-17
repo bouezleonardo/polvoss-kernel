@@ -7,9 +7,12 @@ use crate::riscv::supervisor_mode::*;
 use crate::proc::processing::{cpu_id, current_proc};
 use crate::proc::spin::*;
 use crate::proc::sync::*;
-use crate::config::constants::{TICK_TIME, MILISECOND};
+use crate::io::uart::{uart_intr};
+use crate::config::constants::{TICK_TIME, MILISECOND,
+                              UART0_IRQ};
 use super::kernelvec::kernelvec;
 use super::trap_codes::*;
+use super::plic::*;
 
 /// Count the number of ticks
 pub static TICKS: Mutex<u64> = Mutex::new(0);
@@ -21,6 +24,16 @@ pub static TICKS_CVAR: Condvar = Condvar::new();
 /// Write kernelvec address to stvec register
 pub fn install_kernelvec() {
   write_stvec(kernelvec as *const() as usize);
+}
+
+/// Generate a software interrupt for testing
+pub fn generate_interrupt() {
+  unsafe {
+    core::arch::asm!(
+      "csrs sip, {0}",
+      in(reg) (1usize << 1)
+    );
+  }
 }
 
 /// Get interrupt bit and exception code
@@ -36,7 +49,19 @@ fn catch_cause() -> (usize, usize) {
 
 /// Interrupt handler for external devices
 fn dev_intr() {
-
+  // Claim the interrupt from the PLIC
+  let irq: u32 = plic_claim();
+  
+  // If the interrupt was UART
+  if irq == UART0_IRQ {
+    uart_intr();
+  } else {
+    panic!("[trap_handlers]: unknown device interrupt.
+            \n\r IRQ: {}", irq);
+  }
+  
+  // Signal the handling is completed
+  plic_complete(irq);
 }
 
 /// Interrupt handler for clock
@@ -69,15 +94,17 @@ pub extern "C" fn kerneltrap() {
     panic!("[trap_handlers]: kerneltrap interrupts enabled.");
   }
   // Check if the trap really came from S-mode
-  if sstatus & SPP_S != 1 {
-    panic!("[trap_handlers]: not from Supervisor mode.");
+  if sstatus & SPP_S != SPP_S {
+    panic!("[trap_handlers]: not from Supervisor mode.
+          \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r sstatus: {}", 
+          read_scause(), sepc, read_stval(), sstatus);
   }
   
   // Check if the trap is an exception or interrupt
   if int == 0 {
     // Panic if there is an exception in the kernel
     panic!("[trap_handlers]: kernel exception has occured.
-          \n scause: {}\n sepc: {}\n stval: {}\n Desc: {}", 
+          \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r Desc: {}", 
           read_scause(), sepc, read_stval(), desc_exception(code));
   } else if int == 1 {
     if code == EXTERNAL_INT {
@@ -91,12 +118,12 @@ pub extern "C" fn kerneltrap() {
       }*/
     } else {
       panic!("[trap_handlers]: kerneltrap interrupt not handled.
-            \n scause: {}\n sepc: {}\n stval: {}\n Desc: {}", 
+            \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r Desc: {}", 
             read_scause(), sepc, read_stval(), desc_interrupt(code));
     }
   } else {
     panic!("[trap_handlers]: invalid kerneltrap interrupt bit.
-            \n scause: {}\n sepc: {}\n stval: {}\n Bit: {}", 
+            \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r Bit: {}", 
             read_scause(), sepc, read_stval(), int);
   }
   

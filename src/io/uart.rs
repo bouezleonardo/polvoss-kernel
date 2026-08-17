@@ -4,7 +4,6 @@
 //! writing to the UART0 memory region.
 
 use core::fmt;
-
 use crate::config::constants::{UART0};
 use super::console::console_intr;
 
@@ -14,16 +13,48 @@ const RHR: u8 = 0b000;
 const IER: u8 = 0b001;
 // Interrupt status register
 const ISR: u8 = 0b010;
-// Line status register 
+// FIFO control register
+const FCR: u8 = 0b010;
+// Line control register
+const LCR: u8 = 0b011;
+// Line status register
 const LSR: u8 = 0b101;
 
-// Data ready to be read code
-const LSR_RX_READY: u8 = 1;
 
+/// Data ready to be read code
+const LSR_RX_READY: u8 = 1<<0;
+/// UART receive enable code
+const IER_RX_ENABLE: u8 = 1<<0;
+/// FIFO enable code
+const FCR_FIFO_ENABLE: u8 = 1<<0;
+/// LCR word length
+const LCR_EIGHT_BITS: u8 = 3<<0;
 
+/// Read a register
 fn read_register(reg: u8) -> u8 {
   let addr: u64 = UART0 + reg as u64;
-  unsafe { (addr as *const u8).read() }
+  unsafe { 
+    (addr as *const u8).read_volatile() 
+  }
+}
+/// Write to a register
+fn write_register(reg: u8, code: u8) {
+  let addr: u64 = UART0 + reg as u64;
+  unsafe { 
+    (addr as *mut u8).write_volatile(code); 
+  }
+}
+
+/// Initialize UART for keyboad
+pub fn uart_init () {
+  // Set the word length to 8 bits
+  write_register(LCR, LCR_EIGHT_BITS);
+  
+  // Enable FIFO
+  write_register(FCR, FCR_FIFO_ENABLE);
+  
+  // Enable receive interrupt for key press
+  write_register(IER, IER_RX_ENABLE);
 }
 
 /// Read a character from the receive FIFO (keyboard)
@@ -34,7 +65,7 @@ fn uart_getc() -> Option<u8> {
   
   // Check the first bit of LSR to see if there are
   // bytes to be read
-  if read_register(LSR) & LSR_RX_READY == 1 {
+  if read_register(LSR) & LSR_RX_READY != 0 {
     opt = Some(read_register(RHR));
   }
   opt
@@ -55,6 +86,8 @@ pub fn uart_intr() {
     console_intr(opt.unwrap());
     opt = uart_getc();
   }
+  
+  crate::uart_print!("AAAA");
 }
 
 /********************|TEMPORARY|**********************/
@@ -99,11 +132,6 @@ macro_rules! uart_print {
 /// Move cursor to the row and col
 pub fn uart_move_cursor(row: usize, col: usize) {
   uart_print!("\x1B[{};{}H", row+1, col+1);
-}
-
-/// Erase a character
-pub fn uart_backspace() {
-  uart_print!("\x08 \x08");
 }
 
 // Clear screen

@@ -15,12 +15,9 @@
 use crate::riscv::memory_types::*;
 use crate::memory::memory_layout::*;
 use super::frame_alloc::{kmalloc};
-use crate::config::constants::{PAGE_SIZE,
-                               UART0,
-                               M_BASE,
-                               M_WIDTH,
-                               M_HEIGHT,
-                               RAM_SIZE};
+use crate::config::constants::{PAGE_SIZE, UART0, PLIC,
+                               M_BASE, M_WIDTH,
+                               M_HEIGHT, RAM_SIZE};
 
 /// Kernel's page table address. Should be modified
 /// only when booting by CPU 0.
@@ -119,10 +116,15 @@ pub fn init_virtual_memory() {
   // Set all bytes of the page to 0 to clear it
   pgt.pageset(0);
   
+  // Map UART
+  kernel_map(pgt.clone(), UART0, UART0, PAGE_SIZE, PTE_R|PTE_W);
+  
+  // Map PLIC
+  kernel_map(pgt.clone(), PLIC, PLIC, 0x4000000, PTE_R|PTE_W);
+  
   // Map all memory
-  kernel_map(pgt.clone(), UART0, UART0, RAM_SIZE, PTE_R|PTE_W);
   kernel_map(pgt.clone(), skernel_addr(), skernel_addr(), RAM_SIZE, PTE_R|PTE_X|PTE_W);
-
+  
   unsafe { KERNEL_PAGETABLE = pgt.as_integer(); }
 }
 

@@ -33,6 +33,9 @@ pub const PLIC: u64 = 0x0C000000;
 /// input from the keyboard
 pub const UART0: u64 = 0x10000000;
 
+/// UART0 Interrupt Request (IRQ). Used as an ID
+pub const UART0_IRQ: u32 = 10;
+
 /// Base address of the memory mapped monitor
 pub const M_BASE: u64 = 0x10000000;
 

@@ -12,6 +12,7 @@ use crate::proc::processing::{either_copyin};
 use crate::proc::sync::*;
 use crate::riscv::memory_types::{Addr};
 use super::monitor::*;
+use super::uart::{uart_init};
 
 /// Number of columns of the terminal.
 const INPUT_BUF_SIZE: usize = 128;
@@ -40,9 +41,10 @@ static INPUT: Mutex<InputBuffer> = Mutex::new(InputBuffer {
                                   r_offset: 0, 
                                   w_offset: 0, 
                                 });
-
-pub fn init_console() {
-
+/// Initialize the console
+pub fn console_init() {
+  // Initialize the keyboard
+  uart_init();
 }
 
 /// Write a formatted string to the screen.
@@ -178,6 +180,50 @@ pub fn console_read() {
 
 }
 
+/// Read one byte from the input buffer.
+/// This is used by the kernel only.
+/// # Arguments
+/// - `byte`: byte read
+/// # Return
+/// Number of bytes read
+pub fn read_byte(byte: &mut u8) -> usize {
+  let mut input: MutexGuard<InputBuffer> = INPUT.lock();
+  
+  // Check if the read offset is less than the edit
+  if input.r_offset < input.w_offset {
+    let i: usize = input.r_offset % INPUT_BUF_SIZE;   
+    *byte = input.chars[i];
+    input.r_offset += 1;
+    
+    return 1;
+  }
+  0
+}
+/// Read one line from the input buffer.
+/// This is used by the kernel only.
+/// # Arguments
+/// - `buf`: buffer for the line
+/// # Return
+/// Number of bytes read
+pub fn read_line(buf: &mut [u8]) -> usize {
+  let mut byte: u8 = 0;
+  let mut bytes_read: usize = 0;
+  let mut i: usize = 0;
+  
+  bytes_read = read_byte(&mut byte);
+  while byte != b'\n' && i < buf.len() {
+    // Busy wait
+    for j in 0..10000{}
+    
+    bytes_read += read_byte(&mut byte);
+    
+    buf[i] = byte;
+    
+    i += 1;
+  }
+  bytes_read
+}
+
 /// Get the CTRL + chr character
 const fn ctrl(chr:u8) -> u8 {
   chr-b'@'
@@ -196,54 +242,54 @@ const CTRL_H: u8 = ctrl(b'H');
 /// # Arguments
 /// - `chr`: the character typed
 pub fn console_intr(chr: u8) {
-    let mut input: MutexGuard<InputBuffer> = INPUT.lock();
+  let mut input: MutexGuard<InputBuffer> = INPUT.lock();
+  
+  // In Canonical mode the input is preprocessed
+  if *(CANONICAL.lock()) {
+    match chr {
+      CTRL_Q => page_up(),
+      CTRL_A => page_down(),
+      CTRL_U => { // Kill line
+        while input.e_offset > input.w_offset {
+          backspace();
+          input.e_offset -= 1;
+        }
+      },
+      CTRL_H => { // Backspace
+        if input.e_offset > input.w_offset {
+          backspace();
+          input.e_offset -= 1;
+        }
+      },
+      _ => { // Character for the user
+        // Check if there is space for the input
+        if input.e_offset-input.r_offset < INPUT_BUF_SIZE && chr != 0 {
+          input.e_offset += 1;
     
-    // In Canonical mode the input is preprocessed
-    if *(CANONICAL.lock()) {
-      match chr {
-        CTRL_Q => page_up(),
-        CTRL_A => page_down(),
-        CTRL_U => { // Kill line
-          while input.e_offset > input.w_offset {
-            backspace();
-            input.e_offset -= 1;
-          }
-        },
-        CTRL_H => { // Backspace
-          if input.e_offset > input.w_offset {
-            backspace();
-            input.e_offset -= 1;
-          }
-        },
-        _ => { // Character for the user
-          // Check if there is space for the input
-          if input.e_offset-input.r_offset < INPUT_BUF_SIZE && chr != 0 {
-            input.e_offset += 1;
-      
-            // Echo to the user
-            putc(chr);
+          // Echo to the user
+          putc(chr);
+          
+          // Save character in the buffer
+          let i: usize = input.e_offset % INPUT_BUF_SIZE;
+          input.chars[i] = chr;
+          
+          // Check if the user finished typing
+          if chr == b'\n' {
+            input.w_offset = input.e_offset;
             
-            // Save character in the buffer
-            let i: usize = input.e_offset % INPUT_BUF_SIZE;
-            input.chars[i] = chr;
-            
-            // Check if the user finished typing
-            if chr == b'\n' || chr == ctrl(b'D') {
-              input.w_offset = input.e_offset;
-              
-              // Wake up all processes waiting for input
-              INPUT_CVAR.notify_all();
-            }
+            // Wake up all processes waiting for input
+            INPUT_CVAR.notify_all();
           }
-        },
-      }
-    } else {
-      // Raw mode input
-      if input.e_offset-input.r_offset < INPUT_BUF_SIZE { 
-        input.e_offset += 1;       
-        input.w_offset += 1;
-        let i: usize = input.e_offset % INPUT_BUF_SIZE;   
-        input.chars[i] = chr;
-      }
+        }
+      },
     }
+  } else {
+    // Raw mode input
+    if input.e_offset-input.r_offset < INPUT_BUF_SIZE { 
+      input.e_offset += 1;       
+      input.w_offset += 1;
+      let i: usize = input.e_offset % INPUT_BUF_SIZE;   
+      input.chars[i] = chr;
+    }
+  }
 }

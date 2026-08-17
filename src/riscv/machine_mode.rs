@@ -41,6 +41,36 @@ pub fn write_mstatus(mstatus: usize) {
   unsafe{ asm!("csrw mstatus, {}", in(reg) mstatus); }
 }
 
+/****************|MIE REGISTER|******************/
+
+// The Machine interrupt-enable register (mie) 
+// enables or disables individual
+// interrupts in Machine mode. Read section
+// 22.4.3. of RISC-V privileged doc.
+
+/// mie timer interrupts enable code
+pub const MIE_STIE: usize = 1 << 5;
+pub const MIE_MTIE: usize = 1 << 7;
+
+/// mie external interrupts enable code
+pub const MIE_SEIE: usize = 1 << 9;
+
+/// Read mie register
+pub fn read_mie() -> usize {
+  let mut mie: usize;
+  
+  // csrr reads mie into {} register 
+  unsafe { asm!("csrr {}, mie", out(reg) mie); }
+  
+  mie
+}
+
+/// Write to mie register
+pub fn write_mie(mie: usize) {
+  // csrw writes {} into sie register 
+  unsafe { asm!("csrw mie, {}", in(reg) mie); }
+}
+
 /**************|MEDELEG REGISTER|****************/
 
 // The medeleg and medelegh registers control the
@@ -72,6 +102,16 @@ pub fn write_mideleg(mideleg: usize) {
 
   // csrw writes {} into mideleg
   unsafe{ asm!("csrw mideleg, {}", in(reg) mideleg); }
+}
+
+/// Read mideleg register
+pub fn read_mideleg() -> usize {
+  let mut mideleg: usize;
+  
+  // csrr reads mideleg into {} register 
+  unsafe { asm!("csrr {}, mideleg", out(reg) mideleg); }
+  
+  mideleg
 }
 
 /*******************|MRET|***********************/
@@ -110,4 +150,65 @@ pub fn write_pmpaddr0 (pmpaddr0: usize) {
 
   // csrw writes {} into pmpaddr0
   unsafe{ asm!("csrw pmpaddr0, {}", in(reg) pmpaddr0);}
+}
+
+/**************|MENVCFGH REGISTER|****************/
+
+// The menvcfgh register controls certain
+// characteristics of the execution environment for 
+// modes less privileged than M. Read section 3.1.1.
+
+/// Write to menvcfgh (high 32 bits) register
+pub fn write_menvcfgh(menvcfgh: usize) {
+
+  // csrw writes {} into menvcfgh
+  unsafe{ asm!("csrw menvcfgh, {}", in(reg) menvcfgh); }
+}
+
+/// Read menvcfgh (high 32 bits) register
+pub fn read_menvcfgh() -> usize {
+  let mut menvcfgh: usize;
+  
+  // csrr reads menvcfgh into {} register 
+  unsafe{ asm!("csrr {}, menvcfgh", out(reg) menvcfgh); }
+  
+  menvcfgh
+}
+
+/************|MCOUNTEREN REGISTER|**************/
+
+// The mcounteren register controls the availability 
+// of the hardware performance-monitoring counters to
+// the next-lower privileged mode. Read section 3.1.11.
+
+/// Write to mcounteren register
+pub fn write_mcounteren(mcounteren: usize) {
+
+  // csrw writes {} into menvcfgh
+  unsafe{ asm!("csrw mcounteren, {}", in(reg) mcounteren); }
+}
+
+/// Read mcounteren register
+pub fn read_mcounteren() -> usize {
+  let mut mcounteren: usize;
+  
+  // csrr reads mcounteren into {} register 
+  unsafe{ asm!("csrr {}, mcounteren", out(reg) mcounteren); }
+  
+  mcounteren
+}
+
+/*****************|MHARTID|*******************/
+
+// The mhartid register stores the current CPU's
+// ID.
+
+/// Read mhartid register
+pub fn read_mhartid() -> usize {
+  let mut mhartid: usize;
+  
+  // csrr reads mstatus into {} register 
+  unsafe{ asm!("csrr {}, mhartid", out(reg) mhartid); }
+  
+  mhartid
 }

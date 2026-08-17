@@ -7,22 +7,24 @@
 //! memory to Supervisor mode and switch from Machine to
 //! Supervisor mode calling the start function.
 
-use crate::riscv::machine_mode::{MPP_M, 
-                                 MPP_S,
-                                 read_mstatus,
-                                 write_mstatus,
-                                 write_mideleg,
-                                 write_medeleg,
-                                 write_pmpcfg0,
-                                 write_pmpaddr0,
-                                 write_mepc,
-                                 mret
-                                 };
-                                 
-use crate::riscv::supervisor_mode::{SIE_STIE, 
-                                 SIE_SEIE, 
-                                 read_sie, 
-                                 write_sie};
+use crate::riscv::machine_mode::*;
+use crate::config::constants::{MILISECOND, TICK_TIME};                         
+use crate::riscv::supervisor_mode::{SIE_STIE, SIE_SEIE, SIE_SSIE,
+                                   read_sie, write_sie, write_tp, 
+                                   read_time, write_stimecmp};
+
+/// Configure clock
+fn clock_init() {
+  // Enable timer interrupts
+  write_mie(read_mie() | MIE_STIE);
+  
+  // Allow Supervisor mode to use stimecmp
+  write_menvcfgh(read_menvcfgh() | (1 << 31)); 
+  write_mcounteren(read_mcounteren() | 2);
+  
+  // First clock interrupt
+  write_stimecmp(read_time()+MILISECOND*TICK_TIME);
+}
 
 /// Hardware configuration function
 pub fn hard_config() -> ! {
@@ -41,6 +43,7 @@ pub fn hard_config() -> ! {
   let mut sie: usize = read_sie();
   sie |= SIE_STIE;   // Enable timer interrupts
   sie |= SIE_SEIE;   // Enable external interrupts
+  sie |= SIE_SSIE;   // Enable software interrupts
   write_sie(sie);
   
   // Allow S mode access all physical memory
@@ -54,6 +57,13 @@ pub fn hard_config() -> ! {
   // Set mepc to the start funtion address
   write_mepc(super::start::start as *const () as usize);
 
+  // Save CPU id in the tp register because
+  // mhartid will become inaccessible in S mode
+  write_tp(read_mhartid());
+  
+  // Initialize clock
+  clock_init();
+  
   // Return from M mode to switch to S mode
   // Will return to the address in mepc
   mret();
