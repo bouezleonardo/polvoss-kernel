@@ -15,12 +15,12 @@ use crate::proc::processing::{cpu_id};
 fn plic_enable_irq(cpu: u64, irq: u32) {
   unsafe {
     // Set the IRQ bit to 1
-    ((PLIC + 2080 + cpu*0x100) as *mut u32).write_volatile(1);
+    ((PLIC + 0x2080 + cpu*0x100) as *mut u32).write_volatile(1<<irq);
   }
 }
 
 /// Set interrupt priority for keyboard and disk
-pub fn plic_init() {
+pub fn init_plic() {
   // If the priority is 0, there will be no interrupts
   unsafe {
     // Write to the UART priority register

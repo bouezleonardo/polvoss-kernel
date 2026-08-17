@@ -9,14 +9,15 @@
 
 use crate::{print, println};
 use crate::io::console::{page_up, page_down, clear, 
-                         backspace, console_init};
+                         backspace, init_console};
 use crate::proc::processing::{cpu_id};
-use crate::trap::plic::{plic_init, plic_enable};
+use crate::trap::plic::{init_plic, plic_enable};
 use crate::trap::trap_handlers::{install_kernelvec, 
                                 generate_interrupt};
 use crate::memory::frame_alloc::{init_frame_alloc};
 use crate::riscv::supervisor_mode::{intr_on, read_time, write_stimecmp, 
-                                    read_sstatus, read_sie, read_stimecmp};
+                                    read_sstatus, read_sie, read_stimecmp,
+                                    read_sip};
 use crate::memory::virtual_memory::{init_virtual_memory, 
                                     use_virtual_memory};
 use crate::config::constants::{MILISECOND, TICK_TIME}; 
@@ -39,18 +40,16 @@ pub fn start() -> ! {
     install_kernelvec();
     
     // PLIC
-    plic_init();
+    init_plic();
     plic_enable();
     
     // Console
-    console_init();
+    init_console();
     
     intr_on();
     
-     print!("\n\r sstatus: {:#b}\n\r sie: {:#b}", 
-          read_sstatus(), read_sie());
-    
-    write_stimecmp(read_time()+MILISECOND*TICK_TIME);
+    print!("\n\r sstatus: {:#b}\n\r sie: {:#b}\n\r sip: {:#b}", 
+          read_sstatus(), read_sie(), read_sip());
     
     //generate_interrupt();
     

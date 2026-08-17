@@ -12,7 +12,7 @@ use crate::proc::processing::{either_copyin};
 use crate::proc::sync::*;
 use crate::riscv::memory_types::{Addr};
 use super::monitor::*;
-use super::uart::{uart_init};
+use super::uart::{init_uart};
 
 /// Number of columns of the terminal.
 const INPUT_BUF_SIZE: usize = 128;
@@ -42,9 +42,9 @@ static INPUT: Mutex<InputBuffer> = Mutex::new(InputBuffer {
                                   w_offset: 0, 
                                 });
 /// Initialize the console
-pub fn console_init() {
+pub fn init_console() {
   // Initialize the keyboard
-  uart_init();
+  init_uart();
 }
 
 /// Write a formatted string to the screen.

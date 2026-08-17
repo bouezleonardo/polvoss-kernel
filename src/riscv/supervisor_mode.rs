@@ -43,9 +43,9 @@ pub fn write_sstatus(sstatus: usize) {
   unsafe{ asm!("csrw sstatus, {}", in(reg) sstatus); }
 }
 
-/****************|SIE REGISTER|******************/
+/****************|SIE AND sip|******************/
 
-// The Supervisor interrupt-enable register (sie) 
+// The Supervisor interrupt-enable (sie) 
 // register enables or disables individual
 // interrupts in Supervisor mode. Read section
 // 12.1.3. of RISC-V privileged doc.
@@ -73,6 +73,22 @@ pub fn read_sie() -> usize {
 pub fn write_sie(sie: usize) {
   // csrw writes {} into sie register 
   unsafe { asm!("csrw sie, {}", in(reg) sie); }
+}
+
+/// Read sip register
+pub fn read_sip() -> usize {
+  let mut sip: usize;
+  
+  // csrr reads sie into {} register 
+  unsafe { asm!("csrr {}, sip", out(reg) sip); }
+  
+  sip
+}
+
+/// Write to sip register
+pub fn write_sip(sip: usize) {
+  // csrw writes {} into sie register 
+  unsafe { asm!("csrw sip, {}", in(reg) sip); }
 }
 
 /****************|SATP REGISTER|******************/
@@ -217,28 +233,30 @@ pub fn read_sepc() -> usize {
 // In RISC-V 32 bits, time and stimecmp are split in two
 // halfs of 32 bits.
 
-// Read time register
 pub fn read_time() -> u64 {
   let mut time_l: u32;
-  let mut time_u: u32;
+  let mut time_h: u32;
   
   unsafe {
     // Low 32 bits of time register
     asm!{"csrr {}, time", out(reg) time_l};
     // Upper 32 bits of time register
-    asm!{"csrr {}, timeh", out(reg) time_u};
+    asm!{"csrr {}, timeh", out(reg) time_h};
   }
   
-  time_l as u64 + (time_u as u64) << 32 
+  time_l as u64 + ((time_h as u64) << 32)
 }
 
 /// Write to the full stimecmp register
 pub fn write_stimecmp(count: u64) {
+  let count_l: u32 = count as u32;
+  let count_h: u32 = (count >> 32) as u32;
+  
   unsafe{
     // Low 32 bits of stimecmp register
-    asm!("csrw stimecmp, {}", in(reg) count as u32);
+    asm!("csrw stimecmp, {}", in(reg) count_l);
     // Upper 32 bits of stimecmp register
-    asm!("csrw stimecmph, {}", in(reg) (count >> 32) as u32);
+    asm!("csrw stimecmph, {}", in(reg) count_h);
   }
 }
 
@@ -254,7 +272,7 @@ pub fn read_stimecmp() -> u64{
     asm!("csrr {}, stimecmph", out(reg) count_h);
   }
   
-  count_l as u64 + count_h as u64
+  count_l as u64 + ((count_h as u64) << 32)
 }
 
 /****************|AUXILIARY|*****************/

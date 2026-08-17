@@ -46,7 +46,7 @@ fn write_register(reg: u8, code: u8) {
 }
 
 /// Initialize UART for keyboad
-pub fn uart_init () {
+pub fn init_uart () {
   // Set the word length to 8 bits
   write_register(LCR, LCR_EIGHT_BITS);
   
@@ -86,8 +86,6 @@ pub fn uart_intr() {
     console_intr(opt.unwrap());
     opt = uart_getc();
   }
-  
-  crate::uart_print!("AAAA");
 }
 
 /********************|TEMPORARY|**********************/
