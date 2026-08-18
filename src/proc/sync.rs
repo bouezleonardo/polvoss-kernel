@@ -73,7 +73,7 @@ impl Condvar {
   /// # Arguments
   /// - `mutex`: mutex of the condition.
   /// - `guard`: mutex guard of the condition (that 
-  ///            is checked outside the Condvar).
+  ///   is checked outside the Condvar).
   /// # Return
   /// A new mutex guard of the condition.
   pub fn 

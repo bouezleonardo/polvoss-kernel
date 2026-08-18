@@ -8,20 +8,15 @@
 
 
 use crate::{print, println};
-use crate::io::console::{page_up, page_down, clear, 
-                         backspace, init_console};
+use crate::io::console::{clear, init_console};
 use crate::proc::processing::{cpu_id};
 use crate::trap::plic::{init_plic, plic_enable};
-use crate::trap::trap_handlers::{install_kernelvec, 
-                                generate_interrupt};
+use crate::trap::trap_handlers::{install_kernelvec};
 use crate::memory::frame_alloc::{init_frame_alloc};
-use crate::riscv::supervisor_mode::{intr_on, read_time, write_stimecmp, 
-                                    read_sstatus, read_sie, read_stimecmp,
-                                    read_sip};
+use crate::riscv::supervisor_mode::{intr_on};
 use crate::memory::virtual_memory::{init_virtual_memory, 
                                     use_virtual_memory};
-use crate::config::constants::{MILISECOND, TICK_TIME}; 
-
+                                    
 /// Startup the higher kernel funtionality
 pub fn start() -> ! {
   if cpu_id() == 0 {
@@ -48,31 +43,13 @@ pub fn start() -> ! {
     
     intr_on();
     
-    //generate_interrupt();
-    
-    /*
     for i in 1..100 {
-      print!("\n\r({} x {} = {})", i, i, i*i);
-    }
-    
-    for i in 1..3000 {
-      for j in 0..10000{}
-      backspace();
+      print!("({} x {} = {})", i, i, i*i);
     }
     
     for i in 1..100 {
       print!("\n\r({} x {} = {})", i, i, i*i);
     }
-    
-    for i in 1..5000 {
-      for j in 0..10000{}
-      page_up();
-    }
-    
-    for i in 1..3000 {
-      for j in 0..100000{}
-      backspace();
-    }*/
   }
   plic_enable();
   

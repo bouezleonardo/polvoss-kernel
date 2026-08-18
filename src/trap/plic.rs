@@ -7,7 +7,7 @@
 //! chapters indicated of the RISC-V Platform-Level
 //! Interrupt Controller  Specification.
 
-use crate::config::constants::{PLIC, UART0, UART0_IRQ};
+use crate::config::constants::{PLIC, UART0_IRQ};
 use crate::proc::processing::{cpu_id};
 
 /// Enable interrupts from a device for a CPU.

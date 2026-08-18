@@ -93,9 +93,10 @@ either_copyin(dst: Addr, usr_src: bool, src: Addr, len: usize)
 -> bool {
   // If it is an user address
   if usr_src {
+    let opt: Option<&'static Mutex<Pcb>> = current_proc();
+    
     // Get the current process PCB
-    let proc: &'static Mutex<Pcb>;
-    proc = current_proc().expect("[proc]: either_copyin.");
+    let proc: &'static Mutex<Pcb> = opt.expect("[proc]: either_copyin.");
     
     // Copy from the user process using its pagetable
     return copyin(proc.lock().pagetable.clone(), dst, src, len);

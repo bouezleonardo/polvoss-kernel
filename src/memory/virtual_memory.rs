@@ -92,7 +92,7 @@ perm: u8) -> bool {
     pa += PAGE_SIZE;
   }
   
-  return true;
+  true
 }
 
 /// Call the `map` function with an easier interface

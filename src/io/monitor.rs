@@ -80,7 +80,7 @@ impl Monitor {
     if i < LINES && j < COLS {
       return self.chars[(i + offset) % LINES][j];
     }
-    return 0;
+    0
   }
   
   /// Write to the chars buffer
@@ -128,73 +128,59 @@ impl Monitor {
     }
   }
   
-  /// Check if the cursor can backspace to this position
-  fn can_back(&self, i: usize, j: usize, offset: usize) -> bool {
-    // The NUL character limits the backspace
-    if self.read_buffer(i, j, offset) != 0 {
-      return true;
-    }
-    false
-  }
   /// Find the column where a line ends
   fn find_last_column(&self, i: usize, offset: usize) -> usize {
     let mut col: usize = M_WIDTH-1;
+    let mut chr: u8;
     
-    if self.read_buffer(i, col, offset) == b' ' {
-      // Read the line from right to left
-      while col > 0 {
-        // First non space character
-        if self.read_buffer(i, col, offset) != b' ' {
-          col += 1;
-          break;
-        }
-        col -= 1;
+    // Read the line from right to left
+    while col > 0 {
+      chr = self.read_buffer(i, col, offset);
+      // First non space character
+      if chr != b' ' {
+        break;
       }
+      col -= 1;
     }
-    
-    col
+    col+1
   }
+  
   /// Go back a character position
-  pub fn backspace(&mut self) {
+  /// # Return
+  /// Amount of characters erased
+  pub fn backspace(&mut self) -> usize {
     let mut new_col: usize; // New cursor column
     let mut new_row: usize; // New cursor column
-    let mut new_off: usize;  // New write offset
-    
-    // Make the user see the input
-    if self.r_offset != self.w_offset {
-      let old_offset: usize = self.r_offset;
-      self.r_offset = self.w_offset;
-      self.refresh(old_offset);
-    }
+    let mut erased: usize = 0;  // Amount of characters erased
     
     // Check if it needs to go up one line   
     if self.col == 0 {
       // The line was at the top of screen
       if self.row == 0 && self.w_offset != 0 {
         new_row = M_HEIGHT-1;
-        new_off = self.w_offset-1;
-        new_col = self.find_last_column(new_row, new_off);
+        new_col = self.find_last_column(new_row, self.w_offset-1);
+        erased = M_WIDTH-new_col;
         
-        if self.can_back(new_row, new_col, new_off) {
-          self.page_up();   // Previous page
-          self.scroll_up(); // Write index goes up
-          self.move_cursor(new_row, new_col);
-        }
+        self.page_up();   // Previous page
+        self.scroll_up(); // Write index goes up
+        self.move_cursor(new_row, new_col);
       } else if self.row > 0 {
         new_row = self.row-1;
         new_col = self.find_last_column(new_row, self.w_offset);
-        
-        if self.can_back(new_row, new_col, self.w_offset) {
-          self.move_cursor(new_row, new_col);
-        }
+        erased = M_WIDTH-new_col;
+        self.move_cursor(new_row, new_col);
       }
-    } else if self.can_back(self.row, self.col-1, self.w_offset) {
+    } else {
+      erased = 1;
       self.move_cursor(self.row, self.col-1);
     } 
     
     // Update screen and buffer
     write_at(b' ', self.row, self.col);
     self.write_buffer(b' ', self.row, self.col, self.w_offset);
+    self.move_cursor(self.row, self.col);
+    
+    erased
   }
   
   /// Go to the first column in the line
@@ -273,6 +259,16 @@ impl Monitor {
       self.r_offset -= 1;
       // Refresh screen comparing with the previous offset
       self.refresh(self.r_offset+1);
+    }
+  }
+  
+  /// Show the page where text is being written
+  pub fn page_follow(&mut self) {
+    // Make the user see the input
+    if self.r_offset != self.w_offset {
+      let old_offset: usize = self.r_offset;
+      self.r_offset = self.w_offset;
+      self.refresh(old_offset);
     }
   }
   

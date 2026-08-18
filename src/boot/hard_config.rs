@@ -11,8 +11,7 @@ use crate::riscv::machine_mode::*;
 use crate::config::constants::{MILISECOND, TICK_TIME};                         
 use crate::riscv::supervisor_mode::{SIE_STIE, SIE_SEIE, SIE_SSIE,
                                    read_sie, write_sie, write_tp, 
-                                   read_time, write_stimecmp,
-                                   read_sip, write_sip};
+                                   read_time, write_stimecmp};
 
 /// Configure clock
 fn clock_init() {

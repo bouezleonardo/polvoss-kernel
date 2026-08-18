@@ -65,8 +65,8 @@ pub fn clear() {
   MONITOR.lock().clear();
 }
 /// Backspace.
-pub fn backspace() {
-  MONITOR.lock().backspace();
+pub fn backspace() -> usize {
+  MONITOR.lock().backspace()
 }
 /// Scroll up a line in the terminal.
 pub fn page_up() {
@@ -75,6 +75,10 @@ pub fn page_up() {
 /// Scroll down a line in the terminal.
 pub fn page_down() {
   MONITOR.lock().page_down();
+}
+/// Scroll to the page where input is being written.
+pub fn page_follow() {
+  MONITOR.lock().page_follow();
 }
 
 /// Process ANSI escape codes before printing.
@@ -207,13 +211,13 @@ pub fn read_byte(byte: &mut u8) -> usize {
 /// Number of bytes read
 pub fn read_line(buf: &mut [u8]) -> usize {
   let mut byte: u8 = 0;
-  let mut bytes_read: usize = 0;
+  let mut bytes_read: usize;
   let mut i: usize = 0;
   
   bytes_read = read_byte(&mut byte);
   while byte != b'\n' && i < buf.len() {
     // Busy wait
-    for j in 0..10000{}
+    for _j in 0..10000{}
     
     bytes_read += read_byte(&mut byte);
     
@@ -235,8 +239,6 @@ const CTRL_Q: u8 = ctrl(b'Q');
 const CTRL_A: u8 = ctrl(b'A');
 /// Kill line
 const CTRL_U: u8 = ctrl(b'U');
-/// Backspace
-const CTRL_H: u8 = ctrl(b'H');
 
 /// Treat input comming from the uart_intr
 /// # Arguments
@@ -246,31 +248,26 @@ pub fn console_intr(chr: u8) {
   
   // In Canonical mode the input is preprocessed
   if *(CANONICAL.lock()) {
+    // Show page where the input is being typed
+    let mut show_page: bool = true;
+    
     match chr {
-      CTRL_Q => page_up(),
-      CTRL_A => page_down(),
+      CTRL_Q => {
+        page_up();
+        show_page = false;
+      },
+      CTRL_A => {
+        page_down();
+        show_page = false;
+      },
       CTRL_U => { // Kill line
         while input.e_offset > input.w_offset {
-          backspace();
-          input.e_offset -= 1;
-        }
-      },
-      CTRL_H => { // Backspace
-        if input.e_offset > input.w_offset {
-          backspace();
-          input.e_offset -= 1;
-        }
-      },
-      CTRL_H => { // Backspace
-        if input.e_offset > input.w_offset {
-          backspace();
-          input.e_offset -= 1;
+          input.e_offset -= backspace();
         }
       },
       b'\x7F' => { // Delete
         if input.e_offset > input.w_offset {
-          backspace();
-          input.e_offset -= 1;
+          input.e_offset -= backspace();
         }
       },
       _ => { // Character for the user
@@ -286,7 +283,7 @@ pub fn console_intr(chr: u8) {
           input.chars[i] = chr;
           
           // Check if the user finished typing
-          if chr == b'\n' {
+          if chr == b'\n' || chr == ctrl(b'D') || chr == ctrl(b'M') {
             input.w_offset = input.e_offset;
             
             // Wake up all processes waiting for input
@@ -294,6 +291,11 @@ pub fn console_intr(chr: u8) {
           }
         }
       },
+    }
+    
+    // Show page where the input is being typed
+    if show_page {
+      page_follow();
     }
   } else {
     // Raw mode input

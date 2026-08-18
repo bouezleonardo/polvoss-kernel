@@ -15,6 +15,8 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
+use crate::riscv::supervisor_mode::{intr_on, intr_off};
+
 /// Mutex struct
 pub struct Mutex<T> {
   locked: Cell<bool>,
@@ -39,7 +41,7 @@ impl<T> Mutex<T> {
   /// Lock the Mutex
   pub fn lock(&self) -> MutexGuard<'_, T> {
     // FIXME: implement the interrupts enable/disable
-    // intr_on();
+    // push_off();
     while self.locked.get() {
       spin_loop();
     }
@@ -56,7 +58,7 @@ impl<T> Drop for MutexGuard<'_, T> {
   fn drop(&mut self) {
     self.mutex.locked.set(false);
     // FIXME: implement the interrupts enable/disable
-    // intr_off();
+    // pop_off();
   }
 }
 
