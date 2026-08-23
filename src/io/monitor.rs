@@ -96,12 +96,14 @@ impl Monitor {
     // Clean the buffer
     self.chars[(line + self.w_offset) % LINES] = [b' ';COLS];
     
-    // Clean the screen
-    for j in 0..M_WIDTH {
-      write_at(b' ', line, j);
+    // Clean the line on screen if the user is seeing
+    if self.r_offset == self.w_offset {
+      // FIXME
+      for j in 0..M_WIDTH {
+        write_at(b' ', line, j);
+      }
+      /*unsafe { (*BUFFER)[line] = [b' ', COLS]; }*/
     }
-    
-    /*unsafe { (*BUFFER)[line] = [b' ', COLS]; }*/
   }
   
   // FIXME: uses uart temporarily
@@ -110,6 +112,12 @@ impl Monitor {
     self.col = col;
     uart_move_cursor(row, col);
   }
+  
+  /// Get the cursor position
+  pub fn find_cursor(&self) -> (usize, usize) {
+    (self.row, self.col)
+  }
+  
   /// Break one line
   fn line_feed(&mut self) {
     self.row += 1;

@@ -16,7 +16,7 @@ use crate::memory::frame_alloc::{init_frame_alloc};
 use crate::riscv::supervisor_mode::{intr_on};
 use crate::memory::virtual_memory::{init_virtual_memory, 
                                     use_virtual_memory};
-                                    
+
 /// Startup the higher kernel funtionality
 pub fn start() -> ! {
   if cpu_id() == 0 {
@@ -41,15 +41,15 @@ pub fn start() -> ! {
     // Console
     init_console();
     
-    intr_on();
-    
     for i in 1..100 {
       print!("({} x {} = {})", i, i, i*i);
     }
     
-    for i in 1..100 {
+    for i in 1..100 {    
       print!("\n\r({} x {} = {})", i, i, i*i);
     }
+    
+    intr_on();
   }
   plic_enable();
   

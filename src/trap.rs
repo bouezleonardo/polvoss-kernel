@@ -9,6 +9,9 @@ pub mod trap_types;
 // Kernel trap vector (assembly)
 mod kernelvec;
 
+// User trap vector (assembly)
+mod uservec;
+
 // Rust trap handlers
 pub mod trap_handlers;
 
@@ -18,3 +21,6 @@ mod trap_codes;
 // Platform Level Interrupt Controller (PLIC)
 // mechanisms
 pub mod plic;
+
+// System call handling
+mod syscall;

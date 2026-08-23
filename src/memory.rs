@@ -7,7 +7,7 @@
 pub mod frame_alloc;
 
 // Physical memory layout
-mod memory_layout;
+pub mod memory_layout;
 
 // Virtual memory mechanisms
 pub mod virtual_memory;

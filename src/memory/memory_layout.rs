@@ -5,15 +5,27 @@
 //! layout such as the kernel's start and
 //! end addresses.
 
-use crate::config::constants::{RAM_SIZE,
-                               PAGE_SIZE};
+use crate::config::constants::{RAM_SIZE, PAGE_SIZE};
+use crate::riscv::memory_types::{MAX_VIRT_ADDR};
 
 // These simbols come from linker.ld
 unsafe extern "C" {
+  /// First kernel address
   static skernel: u8;
+  /// Last address of kernel's text section
   static etext: u8;
+  /// Last address of kernel memory
   static ekernel: u8;
 }
+
+/// Virtual address of uservec. The uservec is the user
+/// trap vector that saves the user registers and
+/// changes from the process page table to the kernel page table.
+pub const USERVEC: usize = MAX_VIRT_ADDR - PAGE_SIZE;
+
+/// Virtual address of trapframe. The trapframe is the region
+/// of memory where the user data is stored when performing a trap.
+pub const TRAPFRAME: usize = USERVEC - PAGE_SIZE;
 
 /// Address where the kernel starts (where entry is)
 pub fn skernel_addr() -> u64 {

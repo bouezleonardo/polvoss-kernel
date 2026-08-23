@@ -6,7 +6,7 @@
 use core::fmt;
 use super::console::{write_fmt, putc};
 
-/// Print function
+/// Standard print function
 pub fn _print(args: fmt::Arguments, new_line: bool) {
   write_fmt(args);
   

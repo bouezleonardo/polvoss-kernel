@@ -54,25 +54,25 @@ pub fn set_cpu_context(ctx: Context) {
   assert!(!intr_enabled(), "[cpus]: interrupts enabled.");
   unsafe {CPU[id].ctx = ctx;}
 }
-/// Get the current CPU's number of nested push_off() calls.
-pub fn cpu_noff() -> usize {
+/// Get the current CPU's number of of nested mutex locks.
+pub fn cpu_lock_count() -> usize {
   let id = cpu_id();
   assert!(!intr_enabled(), "[cpus]: interrupts enabled.");
-  unsafe {CPU[id].noff}
+  unsafe {CPU[id].lock_count}
 }
-/// Set the current CPU's number of nested push_off() calls.
-pub fn set_cpu_noff(noff: usize) {
+/// Set the current CPU's number of nested mutex locks.
+pub fn set_cpu_lock_count(lock_count: usize) {
   let id = cpu_id();
   assert!(!intr_enabled(), "[cpus]: interrupts enabled.");
-  unsafe {CPU[id].noff = noff;}
+  unsafe {CPU[id].lock_count = lock_count;}
 }
-/// Get whether interrupts were enabled before push_off().
+/// Get whether interrupts were enabled before locks.
 pub fn cpu_intena() -> bool {
   let id = cpu_id();
   assert!(!intr_enabled(), "[cpus]: interrupts enabled.");
   unsafe {CPU[id].intena}
 }
-/// Set whether interrupts were enabled before push_off().
+/// Set whether interrupts were enabled before locks.
 pub fn set_cpu_intena(intena: bool) {
   let id = cpu_id();
   assert!(!intr_enabled(), "[cpus]: interrupts enabled.");
@@ -126,7 +126,7 @@ pub fn call_scheduler(mut proc: MutexGuard<Pcb>) {
   if intr_enabled() {
     panic!("[proc]: interrupts enabled before scheduler.");
   }
-  if cpu_noff() != 1 {
+  if cpu_lock_count() != 1 {
     // The process should hold only 1 mutex (its own guard)
     // before calling the scheduler 
     panic!("[proc]: noff different than 1 before scheduler.");

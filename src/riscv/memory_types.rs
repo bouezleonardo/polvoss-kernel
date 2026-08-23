@@ -261,10 +261,16 @@ pub fn walk(mut pgt: PageTable, va: Addr, alloc: bool)
   Some((pgt, index))
 }
 
-// Install pagetable in the satp register
+/// Format address to satp register
+pub fn satp_format(addr: u64) -> usize {
+  // Use Sv32 and remove offset from address
+  SATP_SV32 | (addr >> 12) as usize 
+}
+
+/// Install pagetable in the satp register
 pub fn install_page_table(addr: u64) {
   // Use Sv32 and remove offset from address
-  let satp: usize = SATP_SV32 | (addr >> 12) as usize; 
+  let satp: usize = satp_format(addr); 
   
   // Wait for writes to the page table memory to finish
   sfence_vma();

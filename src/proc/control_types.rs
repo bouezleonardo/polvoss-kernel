@@ -59,8 +59,8 @@ impl Pcb {
 pub struct Cpu {
   pub proc: Option<&'static Mutex<Pcb>>,  // PCB of the current process running
   pub ctx: Context,       // Context to go back to the scheduler
-  pub noff: usize,        // Depth of the push_off()s in sequence
-  pub intena: bool,       // Interrupts were enable before push_off()
+  pub lock_count: usize,  // Amount of mutex locks in sequence
+  pub intena: bool,     // Interrupts were enable before locking a mutex
 }
 impl Cpu {
   // Initialize a default CPU
@@ -68,7 +68,7 @@ impl Cpu {
     Self {
       proc: None,
       ctx: Context::new(),
-      noff: 0,
+      lock_count: 0,
       intena: false,
     }
   }

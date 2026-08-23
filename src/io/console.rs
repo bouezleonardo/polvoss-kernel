@@ -80,6 +80,14 @@ pub fn page_down() {
 pub fn page_follow() {
   MONITOR.lock().page_follow();
 }
+/// Move cursor to the specified row and column.
+pub fn move_cursor(row: usize, col: usize) {
+  MONITOR.lock().move_cursor(row, col);
+}
+/// Get the row and column of the cursor.
+pub fn find_cursor() -> (usize, usize) {
+  MONITOR.lock().find_cursor()
+}
 
 /// Process ANSI escape codes before printing.
 /// FIXME: this is not complete
@@ -182,50 +190,6 @@ pub fn console_write(usr_src: bool, src: Addr, len: usize) {
 /// Userspace read() in the console comes here
 pub fn console_read() {
 
-}
-
-/// Read one byte from the input buffer.
-/// This is used by the kernel only.
-/// # Arguments
-/// - `byte`: byte read
-/// # Return
-/// Number of bytes read
-pub fn read_byte(byte: &mut u8) -> usize {
-  let mut input: MutexGuard<InputBuffer> = INPUT.lock();
-  
-  // Check if the read offset is less than the edit
-  if input.r_offset < input.w_offset {
-    let i: usize = input.r_offset % INPUT_BUF_SIZE;   
-    *byte = input.chars[i];
-    input.r_offset += 1;
-    
-    return 1;
-  }
-  0
-}
-/// Read one line from the input buffer.
-/// This is used by the kernel only.
-/// # Arguments
-/// - `buf`: buffer for the line
-/// # Return
-/// Number of bytes read
-pub fn read_line(buf: &mut [u8]) -> usize {
-  let mut byte: u8 = 0;
-  let mut bytes_read: usize;
-  let mut i: usize = 0;
-  
-  bytes_read = read_byte(&mut byte);
-  while byte != b'\n' && i < buf.len() {
-    // Busy wait
-    for _j in 0..10000{}
-    
-    bytes_read += read_byte(&mut byte);
-    
-    buf[i] = byte;
-    
-    i += 1;
-  }
-  bytes_read
 }
 
 /// Get the CTRL + chr character

@@ -47,7 +47,6 @@ pub struct Trapframe {
   pub kernel_satp: usize, // Kernel page table
   pub kernel_sp: usize, // Top of kernel stack for this process
   pub kernel_hartid: usize, // CPU ID
-  pub kernel_trap: usize, // Address of user_trap()
   pub epc: usize, // Next instruction to be executed coming back from the kernel
   
   // Process state

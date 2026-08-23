@@ -11,6 +11,6 @@ pub mod spin;
 pub mod sync;
 
 // Control data structures
-mod control_types;
+pub mod control_types;
 
 pub mod processing;

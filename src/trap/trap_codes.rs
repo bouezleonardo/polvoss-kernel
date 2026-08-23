@@ -1,3 +1,5 @@
+//! RISC-V trap (interrupts and exceptions) codes.
+
 /// Exception codes
 pub const INSTRUCTION_ADDRESS_MISALIGNED: usize = 0;
 pub const INSTRUCTION_ACCESS_FAULT: usize = 1;

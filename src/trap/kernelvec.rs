@@ -5,7 +5,7 @@
 //! Base Address (stvec) register to treat traps
 //! from supervisor mode in the kernel. It uses
 //! the current kernel stack. The kernelvec function
-//! saves the calle
+//! saves the callee registers.
 
 use core::arch::global_asm;
 

@@ -15,7 +15,49 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use crate::riscv::supervisor_mode::{intr_on, intr_off};
+use crate::riscv::supervisor_mode::{intr_on, intr_off, 
+                                    intr_enabled};
+use super::processing::{set_cpu_lock_count, 
+                        cpu_lock_count, cpu_intena, 
+                        set_cpu_intena};
+use core::hint::black_box;
+
+/// Save state and disable interrupts before 
+/// locking a mutex to avoid deadlocks 
+pub fn lock_stack_push(){
+  // Save the old state because interrupts need
+  // to be disabled before accessing the cpu
+  // structs
+  let old_intr: bool = intr_enabled();
+  
+  // Disable interrupts
+  intr_off();
+  
+  // Save the state of interrupts before locks
+  if cpu_lock_count() == 0{
+    set_cpu_intena(old_intr);
+  }
+  
+  // Increment lock_count for nested locks
+  set_cpu_lock_count(cpu_lock_count()+1);
+}
+
+/// Enable interrupts after unlocking a mutex 
+/// if they were enabled before 
+pub fn lock_stack_pop(){
+  if cpu_lock_count() == 0{
+    panic!("[spin]: CPU lock count is 0 before unlock.");
+  }
+  
+  // Decrement lock_count for nested locks
+  set_cpu_lock_count(cpu_lock_count()-1);
+  
+  // Check if interrupts need to be renabled
+  if cpu_lock_count() == 0 && cpu_intena() {
+    // Enable interrupts
+    intr_on();
+  }
+}
 
 /// Mutex struct
 pub struct Mutex<T> {
@@ -40,14 +82,20 @@ impl<T> Mutex<T> {
   
   /// Lock the Mutex
   pub fn lock(&self) -> MutexGuard<'_, T> {
-    // FIXME: implement the interrupts enable/disable
-    // push_off();
-    while self.locked.get() {
-      spin_loop();
-    }
+    black_box({
+      // Disable interrupts
+      lock_stack_push();
 
-    self.locked.set(true);
-
+      while self.locked.get() {
+        if intr_enabled() {
+          panic!("[spin]: interrupts enabled while holding lock.");
+        }
+        spin_loop();
+      }
+      
+      self.locked.set(true);
+    });
+   
     MutexGuard { mutex: self }
   }
 }
@@ -56,9 +104,12 @@ impl<T> Mutex<T> {
 impl<T> Drop for MutexGuard<'_, T> {
   /// Unlock the Mutex
   fn drop(&mut self) {
-    self.mutex.locked.set(false);
-    // FIXME: implement the interrupts enable/disable
-    // pop_off();
+    if self.mutex.locked.get() {
+      black_box({
+        self.mutex.locked.set(false);
+        lock_stack_pop();
+      });
+    }
   }
 }
 

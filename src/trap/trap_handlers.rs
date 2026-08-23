@@ -4,15 +4,20 @@
 //! from kernel and userspace.
 
 use crate::riscv::supervisor_mode::*;
+use crate::riscv::memory_types::{satp_format};
 use crate::proc::processing::{cpu_id, current_proc};
+use crate::proc::control_types::*;
 use crate::proc::spin::*;
 use crate::proc::sync::*;
 use crate::io::uart::{uart_intr};
 use crate::config::constants::{TICK_TIME, MILISECOND,
                               UART0_IRQ};
 use super::kernelvec::kernelvec;
+use super::uservec::uservec;
 use super::trap_codes::*;
+use super::trap_types::*;
 use super::plic::*;
+use super::syscall::syscall;
 
 /// Count the number of ticks
 pub static TICKS: Mutex<u64> = Mutex::new(0);
@@ -26,12 +31,17 @@ pub fn install_kernelvec() {
   write_stvec(kernelvec as *const() as usize);
 }
 
+/// Write uservec address to stvec register
+pub fn install_uservec() {
+  write_stvec(uservec as *const() as usize);
+}
+
 /// Generate a software interrupt for testing
 pub fn generate_interrupt() {
   unsafe {
     core::arch::asm!(
       "csrs sip, {0}",
-      in(reg) (1usize << 1)
+      in(reg) (1 << 1)
     );
   }
 }
@@ -77,6 +87,86 @@ fn clock_intr() {
   }
   // Write next time to have a clock interrupt
   write_stimecmp(read_time()+TICK_TIME*MILISECOND);
+}
+
+/// User trap handler.
+/// # Return
+/// Address of the user page table
+#[unsafe(no_mangle)] // Make it easy to call from assembly
+pub extern "C" fn usertrap() -> usize {
+  // Catch interrupt bit and code for the trap
+  let (int, code): (usize, usize) = catch_cause();
+  // PC saved when the trap occured
+  let sepc: usize = read_sepc();
+  // Operating status of the machine
+  let sstatus: usize = read_sstatus();
+  // Process 
+  let opt: Option<&'static Mutex<Pcb>> = current_proc();
+  let mut proc: MutexGuard<Pcb>;
+  
+  if opt.is_none() {
+    panic!("[trap_handlers]: no process running.");
+  }
+  // Check if interrupts are still enabled
+  if intr_enabled() {
+    panic!("[trap_handlers]: usertrap interrupts enabled.");
+  }
+  // Check if the trap really came from U-mode
+  if sstatus & SPP_U != SPP_U {
+    panic!("[trap_handlers]: not from User mode.
+          \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r sstatus: {}", 
+          read_scause(), sepc, read_stval(), sstatus);
+  }
+  
+  // Check if the trap is an exception or interrupt
+  if int == 0 {
+    proc = opt.unwrap().lock();
+    if code == ENVIRONMENT_CALL_FROM_U_MODE {      
+      // Update PC to the instruction after ecall
+      let mut frame: Trapframe = proc.trapframe.read::<Trapframe>();
+      frame.epc += 4;
+      proc.trapframe.write(frame);
+      
+      // Unlock mutex and turn on interrupts
+      drop(proc);
+      intr_on();
+      
+      syscall(); // Handle system call
+    } else {
+      panic!("[trap_handlers]: usertrap exception not handled.
+            \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r PID: {}
+            \n\r Desc: {}", 
+            read_scause(), sepc, read_stval(), proc.pid,
+            desc_exception(code));
+    }
+  } else if int == 1 {
+    if code == EXTERNAL_INT {
+      dev_intr(); // Handle external device
+    } else if code == TIMER_INT {
+      clock_intr(); // Handle clock
+      
+      // Call the scheduler
+      //yield(); 
+    } else {
+      proc = opt.unwrap().lock();
+      panic!("[trap_handlers]: usertrap interrupt not handled.
+            \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r PID: {}
+            \n\r Desc: {}", 
+            read_scause(), sepc, read_stval(), proc.pid,
+            desc_interrupt(code));
+    }
+  } else {
+    proc = opt.unwrap().lock();
+    panic!("[trap_handlers]: invalid usertrap interrupt bit.
+            \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r PID: {}
+            \n\r Bit: {}", 
+            read_scause(), sepc, read_stval(), proc.pid, int);
+  }
+  
+  // Process PCB 
+  proc = opt.unwrap().lock();
+  // Return process page table to uservec
+  satp_format(proc.pagetable.as_integer())
 }
 
 /// Kernel trap handler
