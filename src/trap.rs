@@ -23,4 +23,7 @@ mod trap_codes;
 pub mod plic;
 
 // System call handling
+mod syscall_handler;
+
+// System call functions
 mod syscall;

@@ -21,7 +21,7 @@ pub enum ProcState {
 /// Process Control Block (PCB)
 pub struct Pcb {
   pub state: ProcState, // Process state
-  pub killed: bool,     // Process is killed
+  pub kill_signal: i32, // Signal received from kill()
   pub exit_status: i32, // Exit status
   pub pid: usize,       // Process ID
   
@@ -29,17 +29,17 @@ pub struct Pcb {
   pub kstack: Addr,     // Address of the process kernel stack
   pub size: usize,      // Size of process memory in bytes
   pub pagetable: PageTable, // Process page table
-  pub trapframe: Addr,  // Address of the process trapframe page
+  trapframe: Addr,  // Process trapframe page
   pub ctx: Context,     // Kernel context for this process
   
-  pub parent: Option<Addr>, // Parent PCB address
+  pub parent: Option<&'static Mutex<Pcb>>, // Parent PCB address
 }
 impl Pcb {
   // Initialize a default PCB
   pub const fn new() -> Self {
     Self {
       state: ProcState::Unused,
-      killed: false,
+      kill_signal: 0,
       exit_status: 0,
       pid: 0,
       kstack: Addr::new(0),
@@ -49,6 +49,14 @@ impl Pcb {
       ctx: Context::new(),
       parent: None,
     }
+  }
+  // Get the trapframe
+  pub fn trapframe(&self) -> Trapframe {
+    self.trapframe.read::<Trapframe>()
+  }
+  // Update the trapframe
+  pub fn update_trapframe(&mut self, tpf: Trapframe) {
+    self.trapframe.write::<Trapframe>(tpf);
   }
 }
 

@@ -30,11 +30,23 @@ pub fn cpu_id() -> usize {
 // All the following CPU functions must be called 
 // with interrupts disabled to avoid a process 
 // changing CPUs while holding the previous CPU's data
+
 /// Get the current CPU's process.
 pub fn current_proc() -> Option<&'static Mutex<Pcb>> {
   let id = cpu_id();
   assert!(!intr_enabled(), "[cpus]: interrupts enabled.");
   unsafe {CPU[id].proc}
+}
+/// Get the current CPU's process PCB mutex.
+/// Receives a string informing which module called
+/// in the case of a panic.
+pub fn current_proc_unwrap(loc: &str) -> &'static Mutex<Pcb> {
+  let opt: Option<&'static Mutex<Pcb>> = current_proc();
+  if opt.is_none() {
+    panic!("[{}]: no process running.", loc);
+  }
+  // Get the mutex
+  opt.unwrap()
 }
 /// Set the current CPU's process.
 pub fn set_current_proc(proc: Option<&'static Mutex<Pcb>>) {
