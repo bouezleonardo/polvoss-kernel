@@ -163,3 +163,32 @@ pub fn call_scheduler(mut proc: MutexGuard<Pcb>) {
   // Process coming back from scheduler, restore intena
   set_cpu_intena(intena);
 }
+
+/// Get the PCB of a child of the current process that 
+/// has the specified PID.
+/// # Arguments
+/// - `pid`: child process' PID
+/// # Return
+/// Option containing the child that has the PID, 
+/// None otherwise 
+pub fn current_proc_child(pid: usize) 
+-> Option<&'static Mutex<Pcb>>{
+  // Current process
+  let proc: &'static Mutex<Pcb> = 
+  current_proc_unwrap("proc");
+  
+  let mut parent: Option<&'static Mutex<Pcb>>;
+  
+  // Search the PCB array
+  for i in 0..NUM_PROC {
+    // Get the child's parent
+    parent = PCB[i].lock().parent;
+    
+    // If the current process is the parent
+    if parent.is_some() &&
+       core::ptr::eq(proc, parent.unwrap()) {
+      return Some(&PCB[i]);
+    }
+  }
+  None
+}

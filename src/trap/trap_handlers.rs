@@ -10,16 +10,13 @@ use crate::proc::processing::{cpu_id, current_proc,
 use crate::proc::control_types::*;
 use crate::proc::spin::*;
 use crate::proc::sync::*;
-use crate::io::uart::{uart_intr};
-use crate::config::constants::{TICK_TIME, MILISECOND,
-                              UART0_IRQ};
 use super::kernelvec::kernelvec;
 use super::uservec::uservec;
 use super::trap_codes::*;
 use super::trap_types::*;
-use super::plic::*;
 use super::syscall_handler::syscall;
-use super::syscall::{TICKS, TICKS_CVAR};
+use super::clock::clock_intr;
+use super::device::dev_intr;
 
 /// Write kernelvec address to stvec register
 pub fn install_kernelvec() {
@@ -50,38 +47,6 @@ fn catch_cause() -> (usize, usize) {
   let code: usize = read_scause() & 0x7fffffff;
   
   (interrupt, code)  
-}
-
-/// Interrupt handler for external devices
-fn dev_intr() {
-  // Claim the interrupt from the PLIC
-  let irq: u32 = plic_claim();
-  
-  // If the interrupt was UART
-  if irq == UART0_IRQ {
-    uart_intr();
-  } else {
-    panic!("[trap_handlers]: unknown device interrupt.
-            \n\r IRQ: {}", irq);
-  }
-  
-  // Signal the handling is completed
-  plic_complete(irq);
-}
-
-/// Interrupt handler for clock
-fn clock_intr() {
-  // Only CPU 0 should increment ticks to avoid
-  // incrementing extra times
-  if cpu_id() == 0 {
-    // Increment ticks
-    let mut ticks: MutexGuard<u64> = TICKS.lock();
-    *ticks += 1;
-    // Wakes up all sleeping processes on this condvar
-    TICKS_CVAR.notify_all();
-  }
-  // Write next time to have a clock interrupt
-  write_stimecmp(read_time()+TICK_TIME*MILISECOND);
 }
 
 /// User trap handler.

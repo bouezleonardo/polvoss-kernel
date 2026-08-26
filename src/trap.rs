@@ -25,5 +25,14 @@ pub mod plic;
 // System call handling
 mod syscall_handler;
 
-// System call functions
-mod syscall;
+// Process related system calls
+mod syscall_proc;
+
+// File system related system calls
+mod syscall_file;
+
+// Clock mechanisms
+mod clock;
+
+// External devices mechanisms
+mod device;

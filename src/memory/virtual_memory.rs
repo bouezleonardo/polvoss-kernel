@@ -233,3 +233,19 @@ copyin(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize)
   
   true
 }
+
+/// Copy bytes from a kernel source address into
+/// a destination address in the userspace.
+/// # Arguments
+/// - `pgt`: user pagetable 
+/// - `dst`: destination address
+/// - `src`: source address 
+/// - `len`: number of bytes to copy
+/// # Return
+/// `true` if the copy is successful, `false` otherwise.
+pub fn 
+copyout(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize) 
+-> bool {
+  
+  true
+}

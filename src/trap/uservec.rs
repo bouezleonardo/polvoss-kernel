@@ -7,6 +7,7 @@
 //! calling process saved on the trapframe.
 
 use core::arch::global_asm;
+use crate::memory::memory_layout::{TRAPFRAME};
 
 // Using global assembly to allow aligning the 
 // uservec function address to be used in the
@@ -23,7 +24,7 @@ global_asm!(r#"
     csrw sscratch, a0
     
     # Using a0 as pointer to TRAPFRAME
-    li a0, TRAPFRAME
+    li a0, {TRAPFRAME}
     
     # The next instructions follow the layout of the 
     # Trapframe struct
@@ -105,7 +106,7 @@ global_asm!(r#"
     sfence.vma zero, zero 
     
     # Using a0 as pointer to TRAPFRAME
-    li a0, TRAPFRAME
+    li a0, {TRAPFRAME}
     
     # Load the caller-saved registers in the trapframe
     # Every general purpose register is 4 bytes in RV32
@@ -147,7 +148,10 @@ global_asm!(r#"
     # Return to the next instruction after the trap
     # in user mode
     sret
-"#);
+  "#,
+  // Allow TRAPFRAME value to be used in assembly
+  TRAPFRAME = const TRAPFRAME, 
+);
 
 unsafe extern "C" {
   /// Accessible uservec symbol for Rust code
