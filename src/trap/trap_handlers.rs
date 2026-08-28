@@ -7,7 +7,7 @@ use crate::riscv::supervisor_mode::*;
 use crate::riscv::memory_types::{satp_format};
 use crate::proc::processing::{cpu_id, current_proc,
                               current_proc_unwrap,
-                              terminated, kexit};
+                              terminated};
 use crate::proc::control_types::*;
 use crate::proc::spin::*;
 use crate::proc::sync::*;
@@ -16,6 +16,7 @@ use super::uservec::uservec;
 use super::trap_codes::*;
 use super::trap_types::*;
 use super::syscall_handler::syscall;
+use super::syscall_proc::kexit;
 use super::clock::clock_intr;
 use super::device::dev_intr;
 

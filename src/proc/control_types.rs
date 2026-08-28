@@ -42,9 +42,9 @@ impl Pcb {
   pub const fn new() -> Self {
     Self {
       state: ProcState::Unused,
-      kill_signal: 0,
-      exit_status: 0,
-      pid: 0,
+      kill_signal: i32::MAX,
+      exit_status: i32::MAX,
+      pid: usize::MAX,
       kstack: None,
       size: 0,
       pagetable: PageTable::new(Addr::new(0)),

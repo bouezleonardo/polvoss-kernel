@@ -2,7 +2,6 @@
 use super::control_types::*;
 use super::spin::*;
 use crate::trap::trap_types::*;
-use crate::trap::syscall_proc::{sys_exit};
 use crate::memory::virtual_memory::{copyin};
 use crate::memory::frame_alloc::*;
 use crate::config::constants::{NUM_PROC, NUM_CPU};
@@ -165,6 +164,35 @@ pub fn call_scheduler(mut proc: MutexGuard<Pcb>) {
   set_cpu_intena(intena);
 }
 
+/// Find the PCB of the process that has the PID.
+/// # Arguments
+/// - `pid`: process' PID
+/// # Return
+/// Option containing the process that has the PID, 
+/// None otherwise 
+pub fn find_proc(pid: usize) 
+-> Option<&'static Mutex<Pcb>>{
+  
+  let mut proc: MutexGuard<Pcb>;
+  
+  // Search the PCB array
+  for i in 0..NUM_PROC {
+    // Get the process from the PCB array
+    proc = PCB[i].lock();
+    
+    if proc.pid == pid {
+      // Check if the process is active
+      if proc.state != ProcState::New &&
+          proc.state != ProcState::Unused {
+        return Some(&PCB[i]);
+      }
+      
+      return None;
+    }
+  }
+  None
+}
+
 /// Get the PCB of a child of the current process that 
 /// has the specified PID.
 /// # Arguments
@@ -178,19 +206,25 @@ pub fn current_proc_child(pid: usize)
   let proc: &'static Mutex<Pcb> = 
   current_proc_unwrap("proc");
   
-  let mut parent: Option<&'static Mutex<Pcb>>;
+  // Look for a process with the spcified PID
+  let opt: Option<&'static Mutex<Pcb>> = find_proc(pid);
   
-  // Search the PCB array
-  for i in 0..NUM_PROC {
-    // Get the child's parent
-    parent = PCB[i].lock().parent;
-    
-    // If the current process is the parent
-    if parent.is_some() &&
-       core::ptr::eq(proc, parent.unwrap()) {
-      return Some(&PCB[i]);
-    }
+  if opt.is_none() {
+    return None;
   }
+  
+  let child: MutexGuard<Pcb> = opt.unwrap().lock();
+  
+  // Check if the child has a parent
+  if child.parent.is_none() {
+    return None;
+  }
+  
+  // Check if proc is the child's parent
+  if core::ptr::eq(proc, child.parent.unwrap()) {
+    return opt;
+  }
+  
   None
 }
 
@@ -224,26 +258,4 @@ pub fn free_memory(proc: &mut MutexGuard<Pcb>) {
 /// - `proc`: process' PCB guard 
 pub fn free_pcb(proc: &mut MutexGuard<Pcb>) {
   **proc = Pcb::new();
-}
-
-/// Exit the current process running on kernel 
-/// mode by setting the Trapframe and calling
-/// sys_exit syscall as if it were in user mode.
-/// # Arguments
-/// - `proc`: process' PCB guard
-pub fn kexit(status: i32) -> ! {
-  let mutex: &'static Mutex<Pcb> = 
-  current_proc_unwrap("kexit");
-  let mut proc: MutexGuard<Pcb> = mutex.lock();
-  
-  // Set the argument for status
-  let mut tpf: Trapframe = proc.trapframe();
-  tpf.a0 = status as usize;
-  proc.write_trapframe(tpf);
-  
-  // Release lock
-  drop(proc);
-  
-  // Call syscall function
-  sys_exit();
 }

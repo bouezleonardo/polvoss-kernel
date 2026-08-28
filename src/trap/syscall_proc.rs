@@ -8,47 +8,42 @@ use crate::memory::virtual_memory::{copyout};
 use crate::proc::processing::{current_proc_unwrap,
                               current_proc_child,
                               call_scheduler, free_memory,
-                              free_pcb};
-use crate::proc::control_types::{Pcb, ProcState};
+                              free_pcb, find_proc};
+use crate::proc::control_types::{Pcb, ProcState, SIGKILL};
 use crate::proc::spin::*;
 use crate::proc::sync::*;
 use crate::riscv::memory_types::{Addr};
 use super::clock::{TICKS, TICKS_CVAR};
 use super::trap_types::Trapframe;
 
-/// Type alias for a process array
-type ProcArray = [Option<&'static Mutex<Pcb>>;NUM_PROC];
-
 /// Syncronize of kill() and pause()
 static KILL_CVAR: Condvar = Condvar::new();
-/// Which processes received a signal from kill() 
-static KILLED: Mutex<ProcArray> = 
-Mutex::new([None; NUM_PROC]);
 
 /// Syncronize of exit() and waitpid()
 static EXIT_CVAR: Condvar = Condvar::new();
 
-/************|AUXILIARY FUNCTIONS|**************/
+/*****************|AUXILIARY|******************/
 
-/// Search for a PID inside an array protected
-/// by a mutex guard and replace it
-fn 
-find(guard: &mut MutexGuard<ProcArray>, 
-pid: usize) -> bool {
-  let mut proc: &'static Mutex<Pcb>;
-  for i in 0..guard.len() {
-    if guard[i].is_none() {
-      continue;
-    }
-    
-    proc = guard[i].unwrap();
-    
-    if proc.lock().pid == pid {
-      guard[i] = None;
-      return true;
-    }
-  }
-  false
+/// Exit the current process running on kernel 
+/// mode by setting the Trapframe and calling
+/// sys_exit syscall as if it were in user mode.
+/// # Arguments
+/// - `proc`: process' PCB guard
+pub fn kexit(status: i32) -> ! {
+  let mutex: &'static Mutex<Pcb> = 
+  current_proc_unwrap("kexit");
+  let mut proc: MutexGuard<Pcb> = mutex.lock();
+  
+  // Set the argument for status
+  let mut tpf: Trapframe = proc.trapframe();
+  tpf.a0 = status as usize;
+  proc.write_trapframe(tpf);
+  
+  // Release lock
+  drop(proc);
+  
+  // Call syscall function
+  sys_exit();
 }
 
 /***************|SYSTEM CALLS|*****************/
@@ -107,7 +102,7 @@ pub fn sys_waitpid() -> usize {
   let proc: &'static Mutex<Pcb> = 
   current_proc_unwrap("waitpid");
   
-  // // Get arguments from Trapframe
+  // Get arguments from Trapframe
   let tpf: Trapframe = proc.lock().trapframe();
   let pid: usize = tpf.a0;
   let stat: Addr = Addr::new(tpf.a1 as u64);
@@ -135,8 +130,10 @@ pub fn sys_waitpid() -> usize {
   }
   
   // Copy exit_status from child's PCB to the address
-  // of the *status argument.
-  if !copyout(proc.lock().pagetable.clone(), stat, exit, 4) {
+  // of the *status argument. Check if the stat address
+  // is not 0 (NULL).
+  if stat.as_integer() != 0 &&
+  !copyout(proc.lock().pagetable.clone(), stat, exit, 4) {
     // If the copy is unsuccessful
     return usize::MAX;
   }
@@ -158,6 +155,33 @@ pub fn sys_execv() -> usize {
 /// # Wrapper
 /// `int kill(pid_t pid, int sig)`
 pub fn sys_kill() -> usize {
+  // Current process
+  let proc: &'static Mutex<Pcb> = 
+  current_proc_unwrap("kill");
+  
+  // Process that will receive the signal
+  let mut target: MutexGuard<Pcb>;
+  
+  // Get arguments from Trapframe
+  let tpf: Trapframe = proc.lock().trapframe();
+  let pid: usize = tpf.a0;
+  let sig: i32 = tpf.a1 as i32;
+  
+  // Search for the process with the pid
+  let opt: Option<&'static Mutex<Pcb>> = 
+  find_proc(pid);
+  
+  if opt.is_none() {
+    return usize::MAX;
+  }
+  
+  // Place the signal in the target PCB
+  target = opt.unwrap().lock();
+  target.kill_signal = sig;
+  
+  // Notify all processes waiting on pause()
+  KILL_CVAR.notify_all();
+  
   0
 }
 
@@ -165,19 +189,27 @@ pub fn sys_kill() -> usize {
 /// # Wrapper 
 /// `int pause(void)`
 pub fn sys_pause() -> usize {
-  // Guard for the KILLED array
-  let mut guard: MutexGuard<ProcArray>;
-
+  // Guard for the PCB
+  let mut guard: MutexGuard<Pcb>;
+  // Process mutex
   let proc: &'static Mutex<Pcb> = 
   current_proc_unwrap("pause");
   
-  let pid: usize = proc.lock().pid;
-  
-  // While PID not found
-  guard = KILLED.lock();
-  while !find(&mut guard, pid) {
+  // Wait while the kill_signal is the default value
+  guard = proc.lock();
+  while guard.kill_signal == i32::MAX {
     // Wait until a kill() notifies waiting processes
-    guard = KILL_CVAR.wait(&KILLED, guard);
+    // Process waits on its own PCB
+    guard = KILL_CVAR.wait_self(&proc, guard);
+  }
+  
+  // Other signals may be added, only SIGKILL for now
+  if guard.kill_signal == SIGKILL {
+    drop(guard);
+    kexit(SIGKILL);
+  } else {
+    // Clear kill_signal field
+    guard.kill_signal = i32::MAX;
   }
   
   // This is equivalent to -1 when casting to i32

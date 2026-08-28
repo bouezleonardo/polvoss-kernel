@@ -4,7 +4,8 @@
 //! mechanisms for processes.
 
 use super::spin::*;
-use super::processing::{current_proc, call_scheduler};
+use super::processing::{current_proc_unwrap, 
+                        call_scheduler};
 use super::control_types::{Pcb, ProcState};
 use crate::config::constants::NUM_PROC;
 
@@ -82,8 +83,9 @@ impl Condvar {
     mutex: &'a Mutex<T>, 
     guard: MutexGuard<'a, T>
   ) -> MutexGuard<'a, T> {
-    // Element in the Pcb array
-    let opt: Option<&'static Mutex<Pcb>>;
+    // Current process
+    let proc_mutex: &'static Mutex<Pcb> = 
+    current_proc_unwrap("cond");
     // Guard for the process
     let mut proc: MutexGuard<Pcb>;
     // Guard for the queue
@@ -92,17 +94,11 @@ impl Condvar {
     // Lock queue mutex
     queue = self.queue.lock();
     
-    // Get the current process
-    opt = current_proc();
-    if opt.is_none() {
-      panic!("[cond]: no process running.");
-    }
-    
     // Push the process to the queue
-    push(opt, &mut queue);
-    
+    push(Some(proc_mutex), &mut queue);
+      
     // Lock the process mutex
-    proc = opt.unwrap().lock();
+    proc = proc_mutex.lock();
     
     // Change process state
     proc.state = ProcState::Waiting;
@@ -119,6 +115,47 @@ impl Condvar {
     // so the caller can safely check the condition.
     mutex.lock()
   }
+  
+  /// Process waits until it is notified to check a 
+  /// condition on its own PCB. The only difference
+  /// from wait() is that this uses the process's
+  /// PCB mutex to syncronize.
+  /// # Arguments
+  /// - `mutex`: mutex of the process PCB.
+  /// - `guard`: mutex guard of the PCB (that 
+  ///   is checked outside the Condvar).
+  /// # Return
+  /// A new mutex guard of the PCB.
+  pub fn 
+  wait_self(
+    &self, 
+    mutex: &'static Mutex<Pcb>, 
+    mut guard: MutexGuard<Pcb>
+  ) -> MutexGuard<'_, Pcb> {
+    // Guard for the queue
+    let mut queue: MutexGuard<CondvarQueue>;
+    
+    // Lock queue mutex
+    queue = self.queue.lock();
+    
+    // Push the process to the queue
+    push(Some(mutex), &mut queue);
+    
+    // Change process state
+    guard.state = ProcState::Waiting;
+    
+    // Drop the guards to allow notify
+    drop(queue);
+    
+    // Call the scheduler
+    // This drops the guard before scheduling
+    call_scheduler(guard);
+    
+    // Reacquire the condition mutex before returning,
+    // so the caller can safely check the condition.
+    mutex.lock()
+  }
+  
   /// Notify all processes on the queue.
   /// Caller should hold the condition guard.
   pub fn notify_all(&self) {
