@@ -18,6 +18,9 @@ pub enum ProcState {
   Zombie,  // A child terminated, but the parent did not wait()
 }
 
+/// Signal code to terminate a process
+pub const SIGKILL: i32 = 9;
+
 /// Process Control Block (PCB)
 pub struct Pcb {
   pub state: ProcState, // Process state
@@ -26,11 +29,11 @@ pub struct Pcb {
   pub pid: usize,       // Process ID
   
   // Private fields that only one context accesses at a time
-  pub kstack: Addr,     // Address of the process kernel stack
-  pub size: usize,      // Size of process memory in bytes
+  pub kstack: Option<Addr>, // Address of the process kernel stack
+  pub size: usize,          // Size of process memory in bytes
   pub pagetable: PageTable, // Process page table
-  trapframe: Addr,  // Process trapframe page
-  pub ctx: Context,     // Kernel context for this process
+  pub trapframe: Option<Addr>,  // Process trapframe page
+  pub ctx: Context,         // Kernel context for this process
   
   pub parent: Option<&'static Mutex<Pcb>>, // Parent PCB address
 }
@@ -42,21 +45,29 @@ impl Pcb {
       kill_signal: 0,
       exit_status: 0,
       pid: 0,
-      kstack: Addr::new(0),
+      kstack: None,
       size: 0,
       pagetable: PageTable::new(Addr::new(0)),
-      trapframe: Addr::new(0),
+      trapframe: None,
       ctx: Context::new(),
       parent: None,
     }
   }
   // Get the trapframe
   pub fn trapframe(&self) -> Trapframe {
-    self.trapframe.read::<Trapframe>()
+    if self.trapframe.is_none() {
+      panic!("[PCB]: no Trapframe to read");
+    }
+    let tpf: Addr = self.trapframe.clone().unwrap();
+    tpf.read::<Trapframe>()
   }
-  // Update the trapframe
-  pub fn update_trapframe(&mut self, tpf: Trapframe) {
-    self.trapframe.write::<Trapframe>(tpf);
+  // Write the trapframe
+  pub fn write_trapframe(&mut self, frame: Trapframe) {
+    if self.trapframe.is_none() {
+      panic!("[PCB]: no Trapframe to read");
+    }
+    let tpf: Addr = self.trapframe.clone().unwrap();
+    tpf.write::<Trapframe>(frame);
   }
 }
 

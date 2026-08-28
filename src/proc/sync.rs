@@ -138,9 +138,6 @@ impl Condvar {
       // Lock the process mutex
       proc = opt.unwrap().lock();
       
-      if proc.state != ProcState::Waiting {
-        panic!("[cond]: process not in 'Waiting' state.");
-      }
       // Change process state
       proc.state = ProcState::Ready;
       

@@ -26,7 +26,7 @@ pub mod plic;
 mod syscall_handler;
 
 // Process related system calls
-mod syscall_proc;
+pub mod syscall_proc;
 
 // File system related system calls
 mod syscall_file;

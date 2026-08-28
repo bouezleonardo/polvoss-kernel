@@ -69,5 +69,5 @@ pub fn syscall(){
   proc = mutex.lock();
   tpf = proc.trapframe();
   tpf.a0 = ret;
-  proc.update_trapframe(tpf);
+  proc.write_trapframe(tpf);
 }

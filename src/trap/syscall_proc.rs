@@ -6,8 +6,10 @@
 use crate::config::constants::{NUM_PROC, TICK_TIME};
 use crate::memory::virtual_memory::{copyout};
 use crate::proc::processing::{current_proc_unwrap,
-                              current_proc_child};
-use crate::proc::control_types::Pcb;
+                              current_proc_child,
+                              call_scheduler, free_memory,
+                              free_pcb};
+use crate::proc::control_types::{Pcb, ProcState};
 use crate::proc::spin::*;
 use crate::proc::sync::*;
 use crate::riscv::memory_types::{Addr};
@@ -25,9 +27,6 @@ Mutex::new([None; NUM_PROC]);
 
 /// Syncronize of exit() and waitpid()
 static EXIT_CVAR: Condvar = Condvar::new();
-/// Which processes called exit()
-static EXITED: Mutex<ProcArray> = 
-Mutex::new([None; NUM_PROC]);
 
 /************|AUXILIARY FUNCTIONS|**************/
 
@@ -64,8 +63,25 @@ pid: usize) -> bool {
 /// Terminate a process.
 /// # Wrapper
 /// `void exit(int status)`
-pub fn sys_exit() {
-   
+pub fn sys_exit() -> ! {
+  let mutex: &'static Mutex<Pcb> = 
+  current_proc_unwrap("exit");
+  let mut proc: MutexGuard<Pcb> = mutex.lock();
+  
+  // Get status from trapframe argument
+  proc.exit_status = proc.trapframe().a0 as i32;
+  proc.state = ProcState::Zombie;
+  
+  // Free process' address space and Trapframe
+  free_memory(&mut proc);
+  
+  // Notify all processes waiting
+  EXIT_CVAR.notify_all();
+  
+  // Call scheduler
+  call_scheduler(proc);
+  
+  panic!("[exit]: Zombie process still alive.");
 }
 
 /// Create a new process that is a copy of
@@ -81,8 +97,8 @@ pub fn sys_fork() -> usize {
 /// # Wrapper
 /// `pid_t waitpid(pid_t pid, int *status)`
 pub fn sys_waitpid() -> usize {
-  // Guard for EXITED
-  let mut guard: MutexGuard<ProcArray>;
+  // Guard for child PCB
+  let mut guard: MutexGuard<Pcb>;
   
   // Option for the child process
   let opt: Option<&'static Mutex<Pcb>>;
@@ -91,10 +107,8 @@ pub fn sys_waitpid() -> usize {
   let proc: &'static Mutex<Pcb> = 
   current_proc_unwrap("waitpid");
   
-  // Trapframe
+  // // Get arguments from Trapframe
   let tpf: Trapframe = proc.lock().trapframe();
-  
-  // Get arguments
   let pid: usize = tpf.a0;
   let stat: Addr = Addr::new(tpf.a1 as u64);
   
@@ -109,16 +123,15 @@ pub fn sys_waitpid() -> usize {
   
   // Get child process
   let child: &'static Mutex<Pcb> = opt.unwrap();
+  guard = child.lock();
   
   // Address of the child PCB's exit_status
-  let exit: Addr = 
-  Addr::to_addr(&child.lock().exit_status);
+  let exit: Addr = Addr::to_addr(&guard.exit_status);
   
-  // While PID not found
-  guard = EXITED.lock();
-  while !find(&mut guard, pid) {
+  // While child is not Zombie
+  while guard.state != ProcState::Zombie {
     // Wait until a exit() notifies waiting processes
-    guard = EXIT_CVAR.wait(&EXITED, guard);
+    guard = EXIT_CVAR.wait(child, guard);
   }
   
   // Copy exit_status from child's PCB to the address
@@ -127,6 +140,10 @@ pub fn sys_waitpid() -> usize {
     // If the copy is unsuccessful
     return usize::MAX;
   }
+  
+  // Free child's PCB
+  free_pcb(&mut guard);
+  
   pid
 }
 
@@ -171,7 +188,7 @@ pub fn sys_pause() -> usize {
 /// # Wrapper
 /// `pid_t getpid(void)`
 pub fn sys_getpid() -> usize {
-  current_proc_unwrap("[getpid]").lock().pid
+  current_proc_unwrap("getpid").lock().pid
 }
 
 /// Sleep for the specified number of ticks.

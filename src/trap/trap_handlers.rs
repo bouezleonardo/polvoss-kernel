@@ -6,7 +6,8 @@
 use crate::riscv::supervisor_mode::*;
 use crate::riscv::memory_types::{satp_format};
 use crate::proc::processing::{cpu_id, current_proc,
-                              current_proc_unwrap};
+                              current_proc_unwrap,
+                              terminated, kexit};
 use crate::proc::control_types::*;
 use crate::proc::spin::*;
 use crate::proc::sync::*;
@@ -78,11 +79,17 @@ pub extern "C" fn usertrap() -> usize {
   // Check if the trap is an exception or interrupt
   if int == 0 {
     proc = mutex.lock();
-    if code == ENVIRONMENT_CALL_FROM_U_MODE {      
+    if code == ENVIRONMENT_CALL_FROM_U_MODE {
+      // Check if the process terminated
+      if terminated(&proc) {
+        drop(proc);
+        kexit(SIGKILL);
+      }
+          
       // Update PC to the instruction after ecall
       let mut tpf: Trapframe = proc.trapframe();
       tpf.epc += 4;
-      proc.update_trapframe(tpf);
+      proc.write_trapframe(tpf);
       
       // Unlock mutex and turn on interrupts
       drop(proc);
@@ -120,6 +127,13 @@ pub extern "C" fn usertrap() -> usize {
   
   // Process PCB 
   proc = mutex.lock();
+  
+  // Check if the process terminated
+  if terminated(&proc) {
+    drop(proc);
+    kexit(SIGKILL);
+  }
+  
   // Return process page table to uservec
   satp_format(proc.pagetable.as_integer())
 }

@@ -1,8 +1,10 @@
 
 use super::control_types::*;
 use super::spin::*;
-use crate::trap::trap_types::Context;
+use crate::trap::trap_types::*;
+use crate::trap::syscall_proc::{sys_exit};
 use crate::memory::virtual_memory::{copyin};
+use crate::memory::frame_alloc::*;
 use crate::config::constants::{NUM_PROC, NUM_CPU};
 use crate::riscv::memory_types::{Addr, PageTable};
 use crate::riscv::supervisor_mode::{read_tp, intr_enabled};
@@ -120,9 +122,8 @@ either_copyin(dst: Addr, usr_src: bool, src: Addr, len: usize)
   true
 }
 
-pub fn scheduler() {
-
-
+pub fn scheduler() -> ! {
+  loop{}
 }
 
 /// Call scheduler from a process context. Drops
@@ -191,4 +192,58 @@ pub fn current_proc_child(pid: usize)
     }
   }
   None
+}
+
+/// Check if a process is terminated
+/// # Arguments
+/// - `proc`: process' PCB guard
+/// # Return
+/// `true` if terminated, `false` otherwise
+pub fn terminated(proc: &MutexGuard<Pcb>) -> bool{
+  // Check if the process received a termination signal
+  if proc.kill_signal == SIGKILL {
+    return true;
+  }
+  false
+}
+
+/// Free process address space and Trapframe page
+/// # Arguments
+/// - `proc`: process' PCB guard 
+pub fn free_memory(proc: &mut MutexGuard<Pcb>) {
+  // Free Trapframe page
+  if proc.trapframe.is_some() {
+    // Using kfree with clone
+    kfree(proc.trapframe.clone().unwrap());
+    proc.trapframe = None;
+  }
+}
+
+/// Free process PCB
+/// # Arguments
+/// - `proc`: process' PCB guard 
+pub fn free_pcb(proc: &mut MutexGuard<Pcb>) {
+  **proc = Pcb::new();
+}
+
+/// Exit the current process running on kernel 
+/// mode by setting the Trapframe and calling
+/// sys_exit syscall as if it were in user mode.
+/// # Arguments
+/// - `proc`: process' PCB guard
+pub fn kexit(status: i32) -> ! {
+  let mutex: &'static Mutex<Pcb> = 
+  current_proc_unwrap("kexit");
+  let mut proc: MutexGuard<Pcb> = mutex.lock();
+  
+  // Set the argument for status
+  let mut tpf: Trapframe = proc.trapframe();
+  tpf.a0 = status as usize;
+  proc.write_trapframe(tpf);
+  
+  // Release lock
+  drop(proc);
+  
+  // Call syscall function
+  sys_exit();
 }
