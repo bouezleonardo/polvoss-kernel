@@ -16,10 +16,10 @@ use crate::riscv::memory_types::{Addr};
 use super::clock::{TICKS, TICKS_CVAR};
 use super::trap_types::Trapframe;
 
-/// Syncronize of kill() and pause()
+/// Syncronize kill() and pause()
 static KILL_CVAR: Condvar = Condvar::new();
 
-/// Syncronize of exit() and waitpid()
+/// Syncronize exit() and waitpid()
 static EXIT_CVAR: Condvar = Condvar::new();
 
 /*****************|AUXILIARY|******************/
@@ -200,7 +200,7 @@ pub fn sys_pause() -> usize {
   while guard.kill_signal == i32::MAX {
     // Wait until a kill() notifies waiting processes
     // Process waits on its own PCB
-    guard = KILL_CVAR.wait_self(&proc, guard);
+    guard = KILL_CVAR.wait_self(proc, guard);
   }
   
   // Other signals may be added, only SIGKILL for now

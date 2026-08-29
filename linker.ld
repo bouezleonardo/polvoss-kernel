@@ -18,8 +18,15 @@ SECTIONS
   {
     *(.text.entry) /* First section */
     *(.text)
+    
+    . = ALIGN(0x1000); /* Align address to the page size (4096 bytes)*/
+    PROVIDE(uvec = .);
+    *(.text.uservec) /* Uservec user trap handler section */
+    . = ALIGN(0x1000);
+    
     *(.text.*)
     
+    . = ALIGN(0x1000);
     PROVIDE(etext = .); /* Save address where .text ends */
   }
   

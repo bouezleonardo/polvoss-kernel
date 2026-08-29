@@ -11,6 +11,7 @@ use crate::proc::processing::{cpu_id, current_proc,
 use crate::proc::control_types::*;
 use crate::proc::spin::*;
 use crate::proc::sync::*;
+use crate::memory::memory_layout::{USERVEC};
 use super::kernelvec::kernelvec;
 use super::uservec::uservec;
 use super::trap_codes::*;
@@ -27,7 +28,7 @@ pub fn install_kernelvec() {
 
 /// Write uservec address to stvec register
 pub fn install_uservec() {
-  write_stvec(uservec as *const() as usize);
+  write_stvec(USERVEC);
 }
 
 /// Generate a software interrupt for testing
@@ -58,13 +59,19 @@ fn catch_cause() -> (usize, usize) {
 pub extern "C" fn usertrap() -> usize {
   // Catch interrupt bit and code for the trap
   let (int, code): (usize, usize) = catch_cause();
-  // PC saved when the trap occured
-  let sepc: usize = read_sepc();
   // Operating status of the machine
   let sstatus: usize = read_sstatus();
-  // Process 
-  let mutex: &'static Mutex<Pcb> = current_proc_unwrap("trap_handlers");
+  // Process mutex
+  let mutex: &'static Mutex<Pcb> = 
+  current_proc_unwrap("trap_handlers");
+  // Process guard
   let mut proc: MutexGuard<Pcb>;
+  // Process trapframe
+  let mut tpf: Trapframe;
+  
+  // Use kernelvec to handle traps while running
+  // inside the kernel
+  install_kernelvec();
   
   // Check if interrupts are still enabled
   if intr_enabled() {
@@ -74,7 +81,7 @@ pub extern "C" fn usertrap() -> usize {
   if sstatus & SPP_U != SPP_U {
     panic!("[trap_handlers]: not from User mode.
     \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r sstatus: {}", 
-    read_scause(), sepc, read_stval(), sstatus);
+    read_scause(), read_sepc(), read_stval(), sstatus);
   }
   
   // Check if the trap is an exception or interrupt
@@ -88,7 +95,7 @@ pub extern "C" fn usertrap() -> usize {
       }
           
       // Update PC to the instruction after ecall
-      let mut tpf: Trapframe = proc.trapframe();
+      tpf = proc.trapframe();
       tpf.epc += 4;
       proc.write_trapframe(tpf);
       
@@ -100,8 +107,8 @@ pub extern "C" fn usertrap() -> usize {
     } else {
       panic!("[trap_handlers]: usertrap exception not handled.
       \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r PID: {}
-      \n\r Desc: {}", read_scause(), sepc, read_stval(), proc.pid,
-      desc_exception(code));
+      \n\r Desc: {}", read_scause(), read_sepc(), read_stval(), 
+      proc.pid, desc_exception(code));
     }
   } else if int == 1 {
     if code == EXTERNAL_INT {
@@ -115,16 +122,12 @@ pub extern "C" fn usertrap() -> usize {
       proc = mutex.lock();
       panic!("[trap_handlers]: usertrap interrupt not handled.
       \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r PID: {}
-      \n\r Desc: {}", read_scause(), sepc, read_stval(), proc.pid,
-      desc_interrupt(code));
+      \n\r Desc: {}", read_scause(), read_sepc(), read_stval(), 
+      proc.pid, desc_interrupt(code));
     }
-  } else {
-    proc = mutex.lock();
-    panic!("[trap_handlers]: invalid usertrap interrupt bit.
-            \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r PID: {}
-            \n\r Bit: {}", 
-            read_scause(), sepc, read_stval(), proc.pid, int);
   }
+  // Disable interrupts for return
+  intr_off();
   
   // Process PCB 
   proc = mutex.lock();
@@ -135,7 +138,18 @@ pub extern "C" fn usertrap() -> usize {
     kexit(SIGKILL);
   }
   
-  // Return process page table to uservec
+  // Set sepc to the process program counter
+  tpf = proc.trapframe();
+  write_sepc(tpf.epc);
+  
+  // Restore sstatus in case it was modified
+  // if yield was called
+  write_sstatus(sstatus);
+  
+  // Restore user trap handler
+  install_uservec();
+  
+  // Return process page table to userret
   satp_format(proc.pagetable.as_integer())
 }
 
@@ -181,10 +195,6 @@ pub extern "C" fn kerneltrap() {
       \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r Desc: {}", 
       read_scause(), sepc, read_stval(), desc_interrupt(code));
     }
-  } else {
-    panic!("[trap_handlers]: invalid kerneltrap interrupt bit.
-    \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r Bit: {}", 
-    read_scause(), sepc, read_stval(), int);
   }
   
   // Restore the sepc and sstatus in case they were

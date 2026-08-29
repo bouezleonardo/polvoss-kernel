@@ -12,6 +12,8 @@ use crate::riscv::memory_types::{MAX_VIRT_ADDR};
 unsafe extern "C" {
   /// First kernel address
   static skernel: u8;
+  /// Uservec address
+  static uvec: u8;
   /// Last address of kernel's text section
   static etext: u8;
   /// Last address of kernel memory
@@ -30,6 +32,10 @@ pub const TRAPFRAME: usize = USERVEC - PAGE_SIZE;
 /// Address where the kernel starts (where entry is)
 pub fn skernel_addr() -> u64 {
   unsafe { &skernel as *const u8 as u64 }
+}
+/// Address of the uservec code
+pub fn uvec_addr() -> u64 {
+  unsafe { &uvec as *const u8 as u64 }
 }
 /// Address where .text section ends
 pub fn etext_addr() -> u64 {

@@ -17,8 +17,9 @@ use super::supervisor_mode::{write_satp, sfence_vma, SATP_SV32};
 
 /********************|TYPES AND CONSTANTS|**********************/
 
-/// Max virtual address for the Sv32 paging scheme
-pub const MAX_VIRT_ADDR: usize = usize::MAX;
+/// Max virtual address on Sv32 paging scheme subtracted
+/// to be page aligned
+pub const MAX_VIRT_ADDR: usize = usize::MAX - PAGE_SIZE + 1;
 
 /// Wrapper for an u64 that represents a memory address.
 // The physical addresses in Sv32 are 34 bits, while

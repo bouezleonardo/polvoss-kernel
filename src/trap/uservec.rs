@@ -15,6 +15,7 @@ use crate::memory::memory_layout::{TRAPFRAME};
 // of the address always be zero. Read section 12.1.2. 
 // of the RISC-V privileged doc.
 global_asm!(r#"
+  .section .text.uservec
   .globl uservec
   .align 2         # Align the function addr in 4 bytes 
   
@@ -95,10 +96,16 @@ global_asm!(r#"
     call usertrap
     
     # After the trap is handled, usertrap() returns
-    # to uservec here
+    # here and executes userret
+    
+    .globl userret
+    userret:
     
     # usertrap() return value is the user page table
     # and it goes to a0
+    
+    # If a new process is created, it comes here directly
+    # and passes the user page table as an argument in a0 
     
     # Restore user page table
     sfence.vma zero, zero 

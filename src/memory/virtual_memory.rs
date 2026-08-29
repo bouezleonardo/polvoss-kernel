@@ -122,8 +122,16 @@ pub fn init_virtual_memory() {
   // Map PLIC
   kernel_map(pgt.clone(), PLIC, PLIC, 0x4000000, PTE_R|PTE_W);
   
-  // Map all memory
-  kernel_map(pgt.clone(), skernel_addr(), skernel_addr(), RAM_SIZE, PTE_R|PTE_X|PTE_W);
+  // Map the kernel's text section
+  kernel_map(pgt.clone(), skernel_addr(), skernel_addr(), 
+             (etext_addr()-skernel_addr()) as usize, PTE_R|PTE_X);
+  
+  // Map USERVEC
+  kernel_map(pgt.clone(), USERVEC as u64, uvec_addr(), PAGE_SIZE, PTE_R|PTE_X);
+  
+  // Map the rest of the RAM
+  kernel_map(pgt.clone(), etext_addr(), etext_addr(), 
+             (last_addr()-etext_addr()) as usize, PTE_R|PTE_W);
   
   unsafe { KERNEL_PAGETABLE = pgt.as_integer(); }
 }
