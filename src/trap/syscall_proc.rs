@@ -5,10 +5,11 @@
 
 use crate::config::constants::{NUM_PROC, TICK_TIME};
 use crate::memory::virtual_memory::{copyout};
+use crate::memory::frame_alloc::{kmalloc};
 use crate::proc::processing::{current_proc_unwrap,
                               current_proc_child,
-                              call_scheduler, free_memory,
-                              free_pcb, find_proc};
+                              call_scheduler, alloc_pcb,
+                              find_proc};
 use crate::proc::control_types::{Pcb, ProcState, SIGKILL};
 use crate::proc::spin::*;
 use crate::proc::sync::*;
@@ -68,7 +69,7 @@ pub fn sys_exit() -> ! {
   proc.state = ProcState::Zombie;
   
   // Free process' address space and Trapframe
-  free_memory(&mut proc);
+  proc.free_memory();
   
   // Notify all processes waiting
   EXIT_CVAR.notify_all();
@@ -84,11 +85,37 @@ pub fn sys_exit() -> ! {
 /// # Wrapper 
 /// `pid_t fork(void)`
 pub fn sys_fork() -> usize {
+  // Try to allocate a PCB for the child
+  let opt: Option<&'static Mutex<Pcb>> = alloc_pcb();
+  // Mutex guard for the child
+  let mut child: MutexGuard<Pcb>;
+  
+  if opt.is_none() {
+    return usize::MAX;
+  }
+  
+  let child_mtx: &'static Mutex<Pcb> = opt.unwrap();
+  
+  // Current process (parent)
+  let proc: &'static Mutex<Pcb> = 
+    current_proc_unwrap("fork");
+  
+  child = child_mtx.lock();
+  
+  child.parent = Some(proc);
+  
+  // Allocate memory for the child's trapframe
+  // and copy the parent trapframe
+  let tpf_addr: Addr = kmalloc().expect("[fork]: no memory available.");
+  child.init_trapframe(tpf_addr);
+  child.write_trapframe(proc.lock().trapframe());
+  
   0
 }
 
 
 /// Wait for a child process termination.
+// TODO: implement wait for any PID
 /// # Wrapper
 /// `pid_t waitpid(pid_t pid, int *status)`
 pub fn sys_waitpid() -> usize {
@@ -133,13 +160,13 @@ pub fn sys_waitpid() -> usize {
   // of the *status argument. Check if the stat address
   // is not 0 (NULL).
   if stat.as_integer() != 0 &&
-  !copyout(proc.lock().pagetable.clone(), stat, exit, 4) {
+  !copyout(proc.lock().pagetable(), stat, exit, 4) {
     // If the copy is unsuccessful
     return usize::MAX;
   }
   
   // Free child's PCB
-  free_pcb(&mut guard);
+  guard.free_pcb();
   
   pid
 }

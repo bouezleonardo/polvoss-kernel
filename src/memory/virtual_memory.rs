@@ -12,6 +12,7 @@
 //! guard pages to control overflows. This is achieved
 //! more easily with predefined virtual addresses.
 
+use crate::riscv::supervisor_mode::{sum_on, sum_off};
 use crate::riscv::memory_types::*;
 use crate::memory::memory_layout::*;
 use super::frame_alloc::{kmalloc};
@@ -176,11 +177,11 @@ walkaddr(mut pgt: PageTable, va: Addr) -> Option<Addr> {
   // Get the PTE from the page table
   pte = pgt.read_pte(index);
     
-  // If this PTE is valid
+  // Check if this PTE is valid
   if !pte.check_fields(PTE_V) {
     return None;
   }
-  // If this PTE is for users
+  // Check if this PTE is for users
   if !pte.check_fields(PTE_U) {
     return None;
   }
@@ -191,19 +192,22 @@ walkaddr(mut pgt: PageTable, va: Addr) -> Option<Addr> {
 /// a destination address in the kernel.
 /// # Arguments
 /// - `pgt`: user pagetable 
-/// - `dst`: destination address
-/// - `src`: source address 
+/// - `dst`: destination address (kernel)
+/// - `src`: source address  (user)
 /// - `len`: number of bytes to copy
 /// # Return
 /// `true` if the copy is successful, `false` otherwise.
 pub fn 
 copyin(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize) 
 -> bool {
-  let mut va: Addr; // Virt addr of the previous page of src
+  let mut va: Addr; // Virt addr of the page where src is
   let mut pa: Addr; // Physical addr that va maps
   let mut opt: Option<Addr>; // Return of walkaddr
   let mut bytes: usize; // Number of bytes to copy from a page
   let mut offset: usize; // Offset within a page
+  
+  // Enable supervisor mode access to user pages
+  sum_on();
   
   // Loops going through pages until 
   while len > 0 {
@@ -231,13 +235,16 @@ copyin(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize)
     if bytes >= len {
       bytes = len;
     }
-    // Copy to the destination
+    // Copy to the destination (in the kernel)
+    // dst is in the kernel, there is no need to translate
     dst.copy::<u8>(pa + offset, bytes);
     
     len -= bytes;
     dst += bytes;
     src = va + PAGE_SIZE; // Next page
   }
+  // Disable supervisor mode access to user pages
+  sum_off();
   
   true
 }
@@ -246,14 +253,64 @@ copyin(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize)
 /// a destination address in the userspace.
 /// # Arguments
 /// - `pgt`: user pagetable 
-/// - `dst`: destination address
-/// - `src`: source address 
+/// - `dst`: destination address (user)
+/// - `src`: source address (kernel)
 /// - `len`: number of bytes to copy
 /// # Return
 /// `true` if the copy is successful, `false` otherwise.
 pub fn 
 copyout(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize) 
 -> bool {
+  let mut va: Addr; // Virt addr of the page where dst is
+  let mut pa: Addr; // Physical addr that va maps
+  let mut opt: Option<Addr>; // Return of walkaddr
+  let mut bytes: usize; // Number of bytes to copy from a page
+  let mut offset: usize; // Offset within a page
+  
+  // Enable supervisor mode access to user pages
+  sum_on();
+  
+  // Loops going through pages until 
+  while len > 0 {
+    // Get the address of the closest previous page because
+    // the virtual addresses mapped on the pagetable must
+    // be page aligned
+    va = prev_page(dst.clone());
+    
+    // Get the physical address of the page that va maps
+    opt = walkaddr(pgt.clone(), va.clone());
+    if opt.is_none() {
+      return false;
+    }
+    // Physical address of the page (va)
+    pa = opt.unwrap();
+    
+    // Number of bytes that will be copied to this page
+    // Bytes from dst to the end of the page will be written
+    // Page: |*......*.....|
+    //        va    dst     end
+    // dst can be equal to va if it is already aligned
+    offset = (dst.as_integer() - va.as_integer()) as usize; 
+    bytes = PAGE_SIZE - offset;
+    
+    // Amount of bytes to be copied is bigger than len
+    if bytes >= len {
+      bytes = len;
+    }
+    // Copy to the destination (in userspace)
+    // va is the page where dst is
+    // pa is the physical address that va maps
+    // so pa + offset is the physical address of dst
+    // src is in the kernel, there is no need to translate
+    pa += offset;
+    pa.copy::<u8>(src.clone(), bytes);
+    
+    len -= bytes;
+    src += bytes;
+    dst = va + PAGE_SIZE; // Next page
+  }
+  // Disable supervisor mode access to user pages
+  sum_off();
   
   true
 }

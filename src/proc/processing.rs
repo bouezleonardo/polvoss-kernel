@@ -112,7 +112,7 @@ either_copyin(dst: Addr, usr_src: bool, src: Addr, len: usize)
     let proc: &'static Mutex<Pcb> = opt.expect("[proc]: either_copyin.");
     
     // Copy from the user process using its pagetable
-    return copyin(proc.lock().pagetable.clone(), dst, src, len);
+    return copyin(proc.lock().pagetable(), dst, src, len);
   }
   
   // Copy len bytes from src to dst
@@ -241,21 +241,29 @@ pub fn terminated(proc: &MutexGuard<Pcb>) -> bool{
   false
 }
 
-/// Free process address space and Trapframe page
-/// # Arguments
-/// - `proc`: process' PCB guard 
-pub fn free_memory(proc: &mut MutexGuard<Pcb>) {
-  // Free Trapframe page
-  if proc.trapframe.is_some() {
-    // Using kfree with clone
-    kfree(proc.trapframe.clone().unwrap());
-    proc.trapframe = None;
-  }
+/// Allocate a new PID.
+fn alloc_pid() -> usize {
+  let mut pid: MutexGuard<usize> = NEXT_PID.lock();
+  let new_pid: usize = *pid;
+  *pid += 1;
+  
+  new_pid 
 }
 
-/// Free process PCB
-/// # Arguments
-/// - `proc`: process' PCB guard 
-pub fn free_pcb(proc: &mut MutexGuard<Pcb>) {
-  **proc = Pcb::new();
+/// Allocate an `Unused` PCB, if it is available
+pub fn alloc_pcb()-> Option<&'static Mutex<Pcb>> {
+  let mut proc: MutexGuard<Pcb>;
+
+  // Search for Unused PCB in the PCB array
+  for i in 0..NUM_PROC {
+    proc = PCB[i].lock();
+    
+    if proc.state == ProcState::Unused {
+      proc.state = ProcState::New;
+      proc.pid = alloc_pid();
+      return Some(&PCB[i]);
+    } 
+  }
+  None
 }
+

@@ -150,7 +150,7 @@ pub extern "C" fn usertrap() -> usize {
   install_uservec();
   
   // Return process page table to userret
-  satp_format(proc.pagetable.as_integer())
+  satp_format(proc.pagetable().as_integer())
 }
 
 /// Kernel trap handler

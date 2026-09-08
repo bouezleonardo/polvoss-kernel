@@ -10,7 +10,7 @@
 
 use core::arch::asm;
 
-/**************|sstatus REGISTER|****************/
+/**************|SSTATUS REGISTER|****************/
 
 // The Supervisor Status (sstatus) register 
 // contains information about a CPU's operating
@@ -25,6 +25,9 @@ pub const SPP_U: usize = 0 << 8;
 
 /// Global enable bit for interrupts
 pub const SSTATUS_SIE: usize = 1 << 1;
+
+/// Supervisor User Memory access
+pub const SSTATUS_SUM: usize = 1 << 18;
 
 /// Read sstatus register
 pub fn read_sstatus() -> usize {
@@ -43,7 +46,7 @@ pub fn write_sstatus(sstatus: usize) {
   unsafe{ asm!("csrw sstatus, {}", in(reg) sstatus); }
 }
 
-/****************|SIE AND sip|******************/
+/****************|SIE AND SIP|******************/
 
 // The Supervisor interrupt-enable (sie) 
 // register enables or disables individual
@@ -291,4 +294,12 @@ pub fn intr_on() {
 /// Disable interrupts globally
 pub fn intr_off() {
   write_sstatus(read_sstatus() & !SSTATUS_SIE);
+}
+/// Enable supervisor user memory access
+pub fn sum_on() {
+  write_sstatus(read_sstatus() | SSTATUS_SUM);
+}
+/// Disable supervisor user memory access
+pub fn sum_off() {
+  write_sstatus(read_sstatus() & !SSTATUS_SUM);
 }

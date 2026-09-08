@@ -19,13 +19,14 @@ use core::panic::PanicInfo;
 use crate::io::console::{clear};
 
 // Kernel module definitions
-mod config; // Configuration
+mod config;  // Configuration
 mod boot;   // Kernel boot and initialization
 mod riscv;  // Inline assembly code functions
 mod memory; // Memory allocation and layout
 mod io;     // IO functionality
 mod proc;   // Processing mechanisms
 mod trap;   // Trap handling
+mod file;    // File system
 
 /// Panic function
 #[panic_handler]

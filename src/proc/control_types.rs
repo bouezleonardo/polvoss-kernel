@@ -6,6 +6,7 @@
 use super::spin::Mutex;
 use crate::riscv::memory_types::{Addr, PageTable};
 use crate::trap::trap_types::{Context, Trapframe};
+use crate::memory::frame_alloc::kfree;
 
 /// Possible process states
 #[derive(Copy, Clone, PartialEq)]
@@ -31,14 +32,14 @@ pub struct Pcb {
   // Private fields that only one context accesses at a time
   pub kstack: Option<Addr>, // Address of the process kernel stack
   pub size: usize,          // Size of process memory in bytes
-  pub pagetable: PageTable, // Process page table
-  pub trapframe: Option<Addr>,  // Process trapframe page
+  pagetable: Option<PageTable>, // Process page table
+  trapframe: Option<Addr>,  // Process trapframe page
   pub ctx: Context,         // Kernel context for this process
   
   pub parent: Option<&'static Mutex<Pcb>>, // Parent PCB address
 }
 impl Pcb {
-  // Initialize a default PCB
+  /// Initialize a default PCB
   pub const fn new() -> Self {
     Self {
       state: ProcState::Unused,
@@ -47,27 +48,91 @@ impl Pcb {
       pid: usize::MAX,
       kstack: None,
       size: 0,
-      pagetable: PageTable::new(Addr::new(0)),
+      pagetable: None,
       trapframe: None,
       ctx: Context::new(),
       parent: None,
     }
   }
-  // Get the trapframe
+  /// Init trapframe memory
+  pub fn init_trapframe(&mut self, addr: Addr) {
+    // Check if there is already a trapframe allocated
+    if self.trapframe.is_some() {
+      panic!("[PCB]: Trapframe already initialized.");
+    }
+    self.trapframe = Some(addr);
+  }
+  /// Free the trapframe page
+  fn free_trapframe(&mut self) {
+    // Check if there is a trapframe allocated
+    if self.trapframe.is_none() {
+      panic!("[PCB]: no Trapframe to free.");
+    }
+    
+    let tpf_addr: Addr = self.trapframe.clone().unwrap();
+      
+    kfree(tpf_addr);
+    self.trapframe = None;
+  }
+  /// Get the trapframe
   pub fn trapframe(&self) -> Trapframe {
     if self.trapframe.is_none() {
-      panic!("[PCB]: no Trapframe to read");
+      panic!("[PCB]: no Trapframe to read.");
     }
+    
     let tpf: Addr = self.trapframe.clone().unwrap();
     tpf.read::<Trapframe>()
   }
-  // Write the trapframe
+  /// Write the trapframe
   pub fn write_trapframe(&mut self, frame: Trapframe) {
     if self.trapframe.is_none() {
       panic!("[PCB]: no Trapframe to read");
     }
+    
     let tpf: Addr = self.trapframe.clone().unwrap();
     tpf.write::<Trapframe>(frame);
+  }
+  /// Init pagetable memory
+  pub fn init_pagetable(&mut self, addr: Addr) {
+    // Check if there is already a pagetable allocated
+    if self.pagetable.is_some() {
+      panic!("[PCB]: Pagetable already initialized.");
+    }
+    self.pagetable = Some(PageTable::new(addr));
+  }
+  /// Free the pagetable page
+  fn free_pagetable(&mut self) {
+    // Check if there is a pagetable allocated
+    if self.pagetable.is_none() {
+      panic!("[PCB]: no Pagetable to free.");
+    }
+      
+    kfree(self.pagetable.clone().unwrap().as_addr());
+    self.pagetable = None;
+  }
+  /// Get the pagetable
+  pub fn pagetable(&self) -> PageTable {
+    if self.pagetable.is_none() {
+      panic!("[PCB]: no Pagetable to read.");
+    }
+    self.pagetable.clone().unwrap()
+  }
+  
+  /// Free the process allocated memory
+  pub fn free_memory(&mut self) {
+    // Free Trapframe page
+    self.free_trapframe();
+    
+    // TODO: free process memory
+    self.size = 0;
+    
+    // Free pagetable pade
+    self.free_pagetable();
+  }
+  
+  /// Reset process PCB
+  pub fn free_pcb(&mut self) {
+    *self = Pcb::new();
   }
 }
 
