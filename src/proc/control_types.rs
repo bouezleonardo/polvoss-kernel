@@ -55,6 +55,7 @@ impl Pcb {
       parent: None,
     }
   }
+  
   /// Init trapframe memory
   pub fn init_trapframe(&mut self, addr: Addr) {
     // Check if there is already a trapframe allocated
@@ -90,13 +91,14 @@ impl Pcb {
     let tpf: Addr = self.trapframe.clone().unwrap();
     tpf.write::<Trapframe>(frame);
   }
+  
   /// Init pagetable memory
-  pub fn init_pagetable(&mut self, addr: Addr) {
+  pub fn init_pagetable(&mut self, pgt: PageTable) {
     // Check if there is already a pagetable allocated
     if self.pagetable.is_some() {
       panic!("[PCB]: Pagetable already initialized.");
     }
-    self.pagetable = Some(PageTable::new(addr));
+    self.pagetable = Some(pgt);
   }
   /// Free the pagetable page
   fn free_pagetable(&mut self) {
@@ -113,6 +115,31 @@ impl Pcb {
       panic!("[PCB]: no Pagetable to read.");
     }
     self.pagetable.clone().unwrap()
+  }
+  
+  /// Init kstack memory
+  pub fn init_kstack(&mut self, addr: Addr) {
+    // Check if there is already a kstack allocated
+    if self.kstack.is_some() {
+      panic!("[PCB]: kstack already initialized.");
+    }
+    self.kstack = Some(addr);
+  }
+  /// Free the kstack page
+  pub fn free_kstack(&mut self) {
+    // Check if there is a kstack allocated
+    if self.kstack.is_none() {
+      panic!("[PCB]: no kstack to free.");
+    } 
+    kfree(self.kstack.clone().unwrap());
+    self.kstack = None;
+  }
+  /// Get the kstack
+  pub fn kstack(&self) -> Addr {
+    if self.kstack.is_none() {
+      panic!("[PCB]: no kstack to read.");
+    }
+    self.kstack.clone().unwrap()
   }
   
   /// Free the process allocated memory

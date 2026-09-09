@@ -10,6 +10,7 @@
 /// and back. Read chapter 1.1. of
 /// the RISCV ABI doc.
 #[derive(Copy, Clone)]
+#[repr(C)] // Ensure struct follows C memory layout
 pub struct Context {
   pub ra: usize,  // Return address
   pub sp: usize,  // Stack pointer
@@ -42,10 +43,11 @@ impl Context {
 /// the data necessary to start the trap handling
 /// in the kernel and go back to the process later
 #[derive(Copy, Clone)]
+#[repr(C)] // Ensure struct follows C memory layout
 pub struct Trapframe {
   // Data for the kernel
   pub kernel_satp: usize, // Kernel page table
-  pub kernel_sp: usize, // Top of kernel stack for this process
+  pub kernel_sp: usize, // Top of trap stack for this process
   pub kernel_hartid: usize, // CPU ID
   pub epc: usize, // Next instruction to be executed coming back from the kernel
   

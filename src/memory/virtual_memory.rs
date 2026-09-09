@@ -8,7 +8,7 @@ use crate::riscv::memory_types::*;
 use crate::memory::memory_layout::*;
 use super::frame_alloc::{kmalloc};
 use crate::config::constants::{PAGE_SIZE, UART0, PLIC,
-                               M_BASE, M_WIDTH,
+                               M_BASE, M_WIDTH, NUM_CPU,
                                M_HEIGHT, RAM_SIZE};
 use crate::proc::spin::MutexGuard;
 use crate::proc::control_types::Pcb;
@@ -91,7 +91,7 @@ perm: u8) -> bool {
 /// Call the `map` function with an easier interface
 fn kernel_map(pgt: PageTable, va: u64, pa: u64, size: usize, 
 perm: u8) {
-  if !map(pgt.clone(), Addr::new(va), Addr::new(pa), size, perm) {
+  if !map(pgt, Addr::new(va), Addr::new(pa), size, perm) {
     panic!("[virtual_memory]: unable to map kernel memory.");
   }
 }
@@ -119,12 +119,12 @@ pub fn init_virtual_memory() {
   kernel_map(pgt.clone(), skernel_addr(), skernel_addr(), 
              (etext_addr()-skernel_addr()) as usize, PTE_R|PTE_X);
   
-  // Map USERVEC
-  kernel_map(pgt.clone(), USERVEC as u64, uvec_addr(), PAGE_SIZE, PTE_R|PTE_X);
-  
   // Map the rest of the RAM
   kernel_map(pgt.clone(), etext_addr(), etext_addr(), 
              (last_addr()-etext_addr()) as usize, PTE_R|PTE_W);
+  
+  // Map USERVEC
+  kernel_map(pgt.clone(), USERVEC as u64, uvec_addr(), PAGE_SIZE, PTE_R|PTE_X);
   
   unsafe { KERNEL_PAGETABLE = pgt.as_integer(); }
 }
@@ -311,35 +311,40 @@ copyout(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize)
 /// all segments in memory and put in another
 /// location
 /// # Arguments
-/// - `pgt`: pagetable to be copied
+/// - `dst`: destination process
+/// - `src`: source process
+/// # Return
+/// `true` if the copy was successful, `false`
+/// otherwise
 pub fn copy_proc_image(
-  child: &mut MutexGuard<Pcb>, 
-  parent: &MutexGuard<Pcb>
+  dst: &mut MutexGuard<Pcb>, 
+  src: &MutexGuard<Pcb>
 ) -> bool {
-  
-  // Allocate memory for the child's trapframe
-  let tpf_addr: Option<Addr> = kmalloc();
-  
-  if tpf_addr.is_none() {
-    return false;
-  }
-  
-  // Copy the parent's trapframe
-  child.init_trapframe(tpf_addr.unwrap());
-  child.write_trapframe(parent.trapframe());
-  
-  // Copy all the contents, but map the same
+  // Copy all the contents mapping the same
   // virtual addresses to different physical ones
-  let pgt: Option<PageTable> = 
-    copy_addr_space(parent.pagetable());
+  let dst_pgt: Option<PageTable> = 
+    copy_addr_space(src.pagetable());
   
-  if pgt.is_none() {
-    child.free_memory();
+  if dst_pgt.is_none() {
+    dst.free_memory();
     return false;
   }
   
-  // TODO: update the trapframe address mapping in
-  // the child's pagetable
+  // Get the leaf pgt and index for TRAPFRAME
+  let pte_opt: Option<(PageTable, usize)> = 
+    walk(dst_pgt.clone().unwrap(), Addr::new(TRAPFRAME as u64), false);
+  
+  if pte_opt.is_none() {
+    dst.free_memory();
+    return false;
+  }
+  
+  // Leaf page table and index for TRAPFRAME
+  let (mut pgt0, i): (PageTable, usize) = pte_opt.unwrap();
+   
+  // Update dst's PCB
+  dst.init_trapframe(pgt0.read_pte(i).get_addr());
+  dst.init_pagetable(dst_pgt.unwrap());
   
   true
 }
@@ -351,5 +356,30 @@ pub fn copy_proc_image(
 /// - `pgt`: pagetable that maps 
 pub fn free_proc_image(pgt: PageTable) {
   free_addr_space(pgt.clone());
+}
+
+/// Allocate a kernel stack for the process
+/// and configure it's PCB. 
+/// FIXME: this does not prepare a guard
+/// page for the kstack, so there is a risk of
+/// an unoticed stack overflow
+/// # Arguments
+/// - `proc`: process that will receive the kstack
+/// # Return
+/// `true` if the alloc was successful, `false`
+/// otherwise
+pub fn 
+create_kstack(proc: &mut MutexGuard<Pcb>) 
+-> bool {
+  // Allocate a kstack and a guard page
+  let kstack: Option<Addr> = kmalloc();
+  
+  if kstack.is_none() {
+    return false;
+  }
+
+  proc.init_kstack(kstack.unwrap());
+
+  true
 }
 

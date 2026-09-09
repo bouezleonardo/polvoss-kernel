@@ -26,6 +26,9 @@ pub const SPP_U: usize = 0 << 8;
 /// Global enable bit for interrupts
 pub const SSTATUS_SIE: usize = 1 << 1;
 
+/// Previous interrupt enable
+pub const SSTATUS_SPIE: usize = 1 << 5;
+
 /// Supervisor User Memory access
 pub const SSTATUS_SUM: usize = 1 << 18;
 

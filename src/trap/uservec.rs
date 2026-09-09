@@ -68,13 +68,14 @@ global_asm!(r#"
     csrr t0, sscratch
     sw t0, 52(a0)
     
-    # Load kernel page table address
+    # Load kernel page table address (kernel_satp)
     lw t0, 0(a0)
     
-    # Load process kernel stack pointer
+    # Load process kernel stack pointer (kernel_sp)
+    # This points to a temporary CPU trap stack
     lw sp, 4(a0)
     
-    # Load hartid
+    # Load hartid (kernel_hartid)
     lw tp, 8(a0)
     
     # Save sepc in the trapframe. sepc holds the   

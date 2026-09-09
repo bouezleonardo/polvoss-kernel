@@ -4,7 +4,7 @@
 //! from kernel and userspace.
 
 use crate::riscv::supervisor_mode::*;
-use crate::riscv::memory_types::{satp_format};
+use crate::riscv::memory_types::{Addr, satp_format};
 use crate::proc::processing::{cpu_id, current_proc,
                               current_proc_unwrap,
                               terminated};
@@ -34,10 +34,7 @@ pub fn install_uservec() {
 /// Generate a software interrupt for testing
 pub fn generate_interrupt() {
   unsafe {
-    core::arch::asm!(
-      "csrs sip, {0}",
-      in(reg) (1 << 1)
-    );
+    core::arch::asm!("csrs sip, {0}", in(reg) (1 << 1));
   }
 }
 
@@ -59,8 +56,6 @@ fn catch_cause() -> (usize, usize) {
 pub extern "C" fn usertrap() -> usize {
   // Catch interrupt bit and code for the trap
   let (int, code): (usize, usize) = catch_cause();
-  // Operating status of the machine
-  let sstatus: usize = read_sstatus();
   // Process mutex
   let mutex: &'static Mutex<Pcb> = 
   current_proc_unwrap("trap_handlers");
@@ -78,10 +73,10 @@ pub extern "C" fn usertrap() -> usize {
     panic!("[trap_handlers]: usertrap interrupts enabled.");
   }
   // Check if the trap really came from U-mode
-  if sstatus & SPP_U != SPP_U {
+  if read_sstatus() & SPP_U != SPP_U {
     panic!("[trap_handlers]: not from User mode.
     \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r sstatus: {}", 
-    read_scause(), read_sepc(), read_stval(), sstatus);
+    read_scause(), read_sepc(), read_stval(), read_sstatus());
   }
   
   // Check if the trap is an exception or interrupt
@@ -138,19 +133,30 @@ pub extern "C" fn usertrap() -> usize {
     kexit(SIGKILL);
   }
   
+  prepare_return(&mut proc);
+  
+  // Return process page table to userret
+  satp_format(proc.pagetable().as_integer())
+}
+
+pub fn prepare_return(proc: &mut MutexGuard<Pcb>) {
+  // Update trapframe
+  let mut tpf: Trapframe = proc.trapframe();
+  tpf.kernel_satp = read_satp(); // Kernel page table
+  tpf.kernel_hartid = cpu_id(); // CPU ID
+  tpf.kernel_sp = proc.kstack().as_integer() as usize; // kstack
+   
   // Set sepc to the process program counter
-  tpf = proc.trapframe();
   write_sepc(tpf.epc);
   
-  // Restore sstatus in case it was modified
-  // if yield was called
+  // Change SPP to user
+  let mut sstatus: usize = read_sstatus();
+  sstatus &= SPP_U; // Change mode to User after sret 
+  sstatus |= SSTATUS_SPIE; // Enable interrupts in User mode
   write_sstatus(sstatus);
   
   // Restore user trap handler
   install_uservec();
-  
-  // Return process page table to userret
-  satp_format(proc.pagetable().as_integer())
 }
 
 /// Kernel trap handler

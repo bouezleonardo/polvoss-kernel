@@ -4,7 +4,8 @@
 //! for system calls related to processes.
 
 use crate::config::constants::{NUM_PROC, TICK_TIME};
-use crate::memory::virtual_memory::{copyout, copy_proc_image};
+use crate::memory::virtual_memory::{copyout, copy_proc_image,
+                                    create_kstack};
 use crate::memory::frame_alloc::{kmalloc};
 use crate::proc::processing::{current_proc_unwrap,
                               current_proc_child,
@@ -103,7 +104,11 @@ pub fn sys_fork() -> usize {
   child = child_mtx.lock();
   child.parent = Some(proc);
   
-  if !copy_proc_image(&mut child, &proc.lock()){
+  // Copy the parent's memory image and create a
+  // kernel stack for the process
+  if !copy_proc_image(&mut child, &proc.lock()) ||
+    !create_kstack(&mut child) {
+    child.free_memory();
     free_pcb(child);
     return usize::MAX;
   }
@@ -163,7 +168,8 @@ pub fn sys_waitpid() -> usize {
     return usize::MAX;
   }
   
-  // Free child's PCB
+  // Free child's kstack and PCB
+  guard.free_kstack();
   free_pcb(guard);
   
   pid

@@ -291,11 +291,11 @@ copy_addr_space(pgt1: PageTable)
   const NUM_PTE: usize = PAGE_SIZE/PTE_SIZE;
   
   // Allocate a frame for the new pgt
-  let mut addr: Option<Addr> = kmalloc();
-  if addr.is_none() {
+  let mut addr_opt: Option<Addr> = kmalloc();
+  if addr_opt.is_none() {
     return None;
   }
-  
+  // Indicate if there was something to copy
   let mut empty: bool = true;
   // Level 1 new page table
   let mut new_pgt1: PageTable;
@@ -303,10 +303,10 @@ copy_addr_space(pgt1: PageTable)
   let mut new_pgt0: PageTable;
   // Level 0 target page table
   let mut pgt0: PageTable;
-  
+  let mut addr: Addr = addr_opt.unwrap();
   let mut pte: PageTableEntry;
   
-  new_pgt1 = PageTable::new(addr.unwrap());
+  new_pgt1 = PageTable::new(addr);
   
   // Walk through level 1
   for i in 0..NUM_PTE {
@@ -319,20 +319,19 @@ copy_addr_space(pgt1: PageTable)
     
     // Allocate a new physical addr for the
     // next pagetable in new_pgt1
-    addr = kmalloc();
-    if addr.is_none() {
+    addr_opt = kmalloc();
+    if addr_opt.is_none() {
       free_addr_space(new_pgt1);
       return None;
     }
-    
-    empty = false;
+    addr = addr_opt.unwrap();
     
     // Level 0 page tables
     pgt0 = PageTable::new(pte.get_addr());
-    new_pgt0 = PageTable::new(addr.clone().unwrap()); 
+    new_pgt0 = PageTable::new(addr.clone()); 
     
     // Save new address in the PTE
-    pte.set_addr(addr.unwrap());
+    pte.set_addr(addr);
     // Save PTE in the page table
     new_pgt1.write_pte(pte, i);
     
@@ -345,13 +344,20 @@ copy_addr_space(pgt1: PageTable)
         continue;
       }
       
-      addr = kmalloc();
-      if addr.is_none() {
+      addr_opt = kmalloc();
+      if addr_opt.is_none() {
         free_addr_space(new_pgt1);
         return None;
       }
       
-      pte.set_addr(addr.unwrap());
+      empty = false;
+      addr = addr_opt.unwrap();
+      
+      // Copy contents
+      addr.copy::<u8>(pte.get_addr(), PAGE_SIZE);
+      
+      // Save pte
+      pte.set_addr(addr);
       new_pgt0.write_pte(pte, j);
     }
   }
@@ -360,6 +366,7 @@ copy_addr_space(pgt1: PageTable)
     free_addr_space(new_pgt1);
     return None;
   }
+  
   Some(new_pgt1)
 }
 

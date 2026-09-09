@@ -32,6 +32,7 @@ const EI_NIDENT: usize = 16;
 /// ELF file header. This is used as a "road map"
 /// describing the file's organization.
 #[derive(Clone, Copy)]
+#[repr(C)] // Ensure struct follows C memory layout
 pub struct Elf32_Ehdr {
   pub e_ident:    [u8;EI_NIDENT], // Magic number and other info
   pub e_type:     Elf32_Half, // Object file type
@@ -108,15 +109,17 @@ validate_elf_header(hdr: Elf32_Ehdr)
 
 /// Program header. The program header describes
 /// segments and information for program execution
+#[derive(Copy, Clone)]
+#[repr(C)] // Ensure struct follows C memory layout
 pub struct Elf32_Phdr {
-  p_type:  Elf32_Word, // Type of segment
-  p_offset: Elf32_Off,   // Segment's offset from the beginning of the file
-  p_vaddr: Elf32_Addr, // Virtual address where the segment starts
-  p_paddr: Elf32_Addr, // Physical address where the segment starts (optional)
-  p_filesz: Elf32_Word, // Size of the file image of the segment
-  p_memsz: Elf32_Word, // Size of the memory image of the segment
-  p_flags:  Elf32_Word, // Flags for segment permissions (R/W/E)
-  p_align: Elf32_Word, // Alignment requirement for p_vaddr and p_offset
+  pub p_type:  Elf32_Word, // Type of segment
+  pub p_offset: Elf32_Off,   // Segment's offset from the beginning of the file
+  pub p_vaddr: Elf32_Addr, // Virtual address where the segment starts
+  pub p_paddr: Elf32_Addr, // Physical address where the segment starts (optional)
+  pub p_filesz: Elf32_Word, // Size of the file image of the segment
+  pub p_memsz: Elf32_Word, // Size of the memory image of the segment
+  pub p_flags:  Elf32_Word, // Flags for segment permissions (R/W/E)
+  pub p_align: Elf32_Word, // Alignment requirement for p_vaddr and p_offset
 }
 
 // p_type values
@@ -127,8 +130,8 @@ const PT_X: Elf32_Word = 0x1; // Execute permission
 const PT_W: Elf32_Word = 0x2; // Write permission
 const PT_R: Elf32_Word = 0x4; // Read permission
 
-/// Check whether or not the ELF program header 
-/// is supported
+/// Check whether or not the ELF segment indicated by
+/// the program header is supported
 /// # Arguments
 /// - `hdr`: ELF program header
 /// # Return
@@ -148,5 +151,19 @@ validate_program_header(hdr: Elf32_Phdr)
      !hdr.p_offset.is_multiple_of(PSZ) {
     return false;
   }
+  
+  // Check sizes
+  if hdr.p_memsz == 0 ||
+     hdr.p_memsz < hdr.p_filesz{
+    return false;
+  }
+  
+  // Check permissions
+  if hdr.p_flags != PT_X &&
+     hdr.p_flags != PT_W &&
+     hdr.p_flags != PT_R {
+    return false;
+  }
+  
   true
 }

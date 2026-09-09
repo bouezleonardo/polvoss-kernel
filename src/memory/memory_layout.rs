@@ -23,6 +23,8 @@ unsafe extern "C" {
 /// Virtual address of uservec. The uservec is the user
 /// trap vector that saves the user registers and
 /// changes from the process page table to the kernel page table.
+/// It is mapped in the same location in the kernel and users 
+/// address spaces
 pub const USERVEC: usize = MAX_VIRT_ADDR - PAGE_SIZE;
 
 /// Virtual address of trapframe. The trapframe is the region
