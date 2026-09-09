@@ -2,9 +2,6 @@
 
 /*******************|SYSTEM|*********************/
 
-/// Page size in bytes
-pub const PAGE_SIZE: usize = 4096;
-
 /// Maximum number of processes
 pub const NUM_PROC: usize = 64;
 
@@ -12,6 +9,9 @@ pub const NUM_PROC: usize = 64;
 pub const TICK_TIME: u64 = 100;
 
 /******************|HARDWARE|********************/
+
+/// Page size in bytes
+pub const PAGE_SIZE: usize = 4096;
 
 /// Number of CPUs
 pub const NUM_CPU: usize = 1;

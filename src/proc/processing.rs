@@ -267,3 +267,7 @@ pub fn alloc_pcb()-> Option<&'static Mutex<Pcb>> {
   None
 }
 
+/// Reset process PCB
+pub fn free_pcb(mut proc: MutexGuard<Pcb>) {
+  *proc = Pcb::new();
+}

@@ -1,16 +1,7 @@
 //! Virtual memory mechanisms
 //!
-//! This module builds the
-//! kernel's virtual memory layout by
-//! constructing a page table that maps the
-//! physical adresses to the same virtual
-//! addresses except for the trampoline code
-//! and the processes kernel stacks. This is done
-//! to facilitate the construction of the kernel's
-//! memory region, since the trampoline code must be
-//! in a known position and the kernel stacks need
-//! guard pages to control overflows. This is achieved
-//! more easily with predefined virtual addresses.
+//! This module implements the virtual
+//! memory mechanisms via paging.
 
 use crate::riscv::supervisor_mode::{sum_on, sum_off};
 use crate::riscv::memory_types::*;
@@ -19,17 +10,17 @@ use super::frame_alloc::{kmalloc};
 use crate::config::constants::{PAGE_SIZE, UART0, PLIC,
                                M_BASE, M_WIDTH,
                                M_HEIGHT, RAM_SIZE};
+use crate::proc::spin::MutexGuard;
+use crate::proc::control_types::Pcb;
 
 /// Kernel's page table address. Should be modified
 /// only when booting by CPU 0.
 static mut KERNEL_PAGETABLE: u64 = 0;
 
-/// Configure the PTEs for the page tables mapping virtual
-/// addresses starting at va to physical addresses starting
-/// at pa.
-/// `va` and `size` must be page-aligned because the paging
-/// scheme is based on [`crate::config::constants::PAGE_SIZE`]
-/// bytes pages
+/// Configure the PTEs for the page tables mapping 
+/// virtual addresses starting at va to physical
+/// addresses starting at pa. `va` and `size`
+/// must be page-aligned
 /// # Arguments
 /// - `pgt`: page table to search
 /// - `va`: virtual address
@@ -37,7 +28,8 @@ static mut KERNEL_PAGETABLE: u64 = 0;
 /// - `size`: size of the mapping
 /// # Return
 /// `true` if the mapping is successful, `false` otherwise
-fn map(pgt: PageTable, mut va: Addr, mut pa: Addr, size: usize, 
+fn 
+map(pgt: PageTable, mut va: Addr, mut pa: Addr, size: usize, 
 perm: u8) -> bool {
   let last: Addr;              // Last address to map
   let mut pte: PageTableEntry; // Leaf PTE
@@ -80,7 +72,7 @@ perm: u8) -> bool {
     }
     
     // Map the physical address in this PTE
-    pte.to_pte(pa.clone());
+    pte.set_addr(pa.clone());
     
     // Change permissions
     pte.write_fields(PTE_V | perm);
@@ -185,7 +177,7 @@ walkaddr(mut pgt: PageTable, va: Addr) -> Option<Addr> {
   if !pte.check_fields(PTE_U) {
     return None;
   }
-  Some(pte.to_addr())
+  Some(pte.get_addr())
 }
 
 /// Copy bytes from a user source address into
@@ -314,3 +306,50 @@ copyout(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize)
   
   true
 }
+
+/// Copy a process' memory image. That is, copy
+/// all segments in memory and put in another
+/// location
+/// # Arguments
+/// - `pgt`: pagetable to be copied
+pub fn copy_proc_image(
+  child: &mut MutexGuard<Pcb>, 
+  parent: &MutexGuard<Pcb>
+) -> bool {
+  
+  // Allocate memory for the child's trapframe
+  let tpf_addr: Option<Addr> = kmalloc();
+  
+  if tpf_addr.is_none() {
+    return false;
+  }
+  
+  // Copy the parent's trapframe
+  child.init_trapframe(tpf_addr.unwrap());
+  child.write_trapframe(parent.trapframe());
+  
+  // Copy all the contents, but map the same
+  // virtual addresses to different physical ones
+  let pgt: Option<PageTable> = 
+    copy_addr_space(parent.pagetable());
+  
+  if pgt.is_none() {
+    child.free_memory();
+    return false;
+  }
+  
+  // TODO: update the trapframe address mapping in
+  // the child's pagetable
+  
+  true
+}
+
+/// Free a process' memory image. That is, mark
+/// all pages that hold segments in memory as 
+/// free
+/// # Arguments
+/// - `pgt`: pagetable that maps 
+pub fn free_proc_image(pgt: PageTable) {
+  free_addr_space(pgt.clone());
+}
+

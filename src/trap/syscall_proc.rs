@@ -4,16 +4,16 @@
 //! for system calls related to processes.
 
 use crate::config::constants::{NUM_PROC, TICK_TIME};
-use crate::memory::virtual_memory::{copyout};
+use crate::memory::virtual_memory::{copyout, copy_proc_image};
 use crate::memory::frame_alloc::{kmalloc};
 use crate::proc::processing::{current_proc_unwrap,
                               current_proc_child,
                               call_scheduler, alloc_pcb,
-                              find_proc};
+                              free_pcb, find_proc};
 use crate::proc::control_types::{Pcb, ProcState, SIGKILL};
 use crate::proc::spin::*;
 use crate::proc::sync::*;
-use crate::riscv::memory_types::{Addr};
+use crate::riscv::memory_types::{Addr, PageTable};
 use super::clock::{TICKS, TICKS_CVAR};
 use super::trap_types::Trapframe;
 
@@ -101,14 +101,12 @@ pub fn sys_fork() -> usize {
     current_proc_unwrap("fork");
   
   child = child_mtx.lock();
-  
   child.parent = Some(proc);
   
-  // Allocate memory for the child's trapframe
-  // and copy the parent trapframe
-  let tpf_addr: Addr = kmalloc().expect("[fork]: no memory available.");
-  child.init_trapframe(tpf_addr);
-  child.write_trapframe(proc.lock().trapframe());
+  if !copy_proc_image(&mut child, &proc.lock()){
+    free_pcb(child);
+    return usize::MAX;
+  }
   
   0
 }
@@ -127,7 +125,7 @@ pub fn sys_waitpid() -> usize {
   
   // Current process
   let proc: &'static Mutex<Pcb> = 
-  current_proc_unwrap("waitpid");
+    current_proc_unwrap("waitpid");
   
   // Get arguments from Trapframe
   let tpf: Trapframe = proc.lock().trapframe();
@@ -166,7 +164,7 @@ pub fn sys_waitpid() -> usize {
   }
   
   // Free child's PCB
-  guard.free_pcb();
+  free_pcb(guard);
   
   pid
 }
@@ -184,7 +182,7 @@ pub fn sys_execv() -> usize {
 pub fn sys_kill() -> usize {
   // Current process
   let proc: &'static Mutex<Pcb> = 
-  current_proc_unwrap("kill");
+    current_proc_unwrap("kill");
   
   // Process that will receive the signal
   let mut target: MutexGuard<Pcb>;
@@ -196,7 +194,7 @@ pub fn sys_kill() -> usize {
   
   // Search for the process with the pid
   let opt: Option<&'static Mutex<Pcb>> = 
-  find_proc(pid);
+    find_proc(pid);
   
   if opt.is_none() {
     return usize::MAX;
@@ -220,7 +218,7 @@ pub fn sys_pause() -> usize {
   let mut guard: MutexGuard<Pcb>;
   // Process mutex
   let proc: &'static Mutex<Pcb> = 
-  current_proc_unwrap("pause");
+    current_proc_unwrap("pause");
   
   // Wait while the kill_signal is the default value
   guard = proc.lock();
@@ -259,7 +257,7 @@ pub fn sys_sleep() -> usize {
   
   // Current process PCB
   let proc: &'static Mutex<Pcb> = 
-  current_proc_unwrap("sleep");
+    current_proc_unwrap("sleep");
   
   let tpf: Trapframe = proc.lock().trapframe();
   

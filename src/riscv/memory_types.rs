@@ -99,21 +99,26 @@ pub const PTE_W: u8 = 1 << 2;
 pub const PTE_X: u8 = 1 << 3;
 /// User PTE field
 pub const PTE_U: u8 = 1 << 4;
+/// PTE size (bytes)
+pub const PTE_SIZE: usize = 4;
 
 /// Wrapper for an usize that represents a PTE.
-#[derive(Copy, Clone)] // Allows copy and cloning
+#[derive(Copy, Clone, PartialEq, PartialOrd)]
 pub struct PageTableEntry (usize);
 impl PageTableEntry {
   /// Create a pte
   pub const fn new(pte: usize) -> Self {
     Self(pte)
   }
-  /// Set the PTE from the physical address
-  pub fn to_pte(&mut self, addr: Addr) {
-    self.0 = ((addr.as_integer() >> 12) << 10) as usize;
+  /// Set the physical address in the PTE
+  pub fn set_addr(&mut self, addr: Addr) {
+    // Clear address field
+    self.0 &= !(1 << 10);
+    // Save address 
+    self.0 |= ((addr.as_integer() >> 12) << 10) as usize;
   }
   /// Get the physical address from the PTE
-  pub fn to_addr(&self) -> Addr {
+  pub fn get_addr(&self) -> Addr {
     Addr::new(((self.0 as u64) >> 10) << 12)
   }
   /// Check if a PTE field (UXWRV) is set
@@ -155,8 +160,8 @@ impl PageTable {
      if index > 1023 {
        panic!("[page table]: invalid index.");
      }
-     // Each index corresponds to a PTE (4 bytes)
-     let addr: Addr = self.as_addr()+(index * 4);
+     // Each index corresponds to a PTE
+     let addr: Addr = self.as_addr()+(index * PTE_SIZE);
      
      addr.read::<PageTableEntry>()
   }
@@ -166,8 +171,8 @@ impl PageTable {
      if index > 1023 {
        panic!("[page table]: invalid index.");
      }
-     // Each index corresponds to a PTE (4 bytes)
-     let addr: Addr = self.as_addr()+(index * 4);
+     // Each index corresponds to a PTE
+     let addr: Addr = self.as_addr()+(index * PTE_SIZE);
      
      addr.write::<PageTableEntry>(pte);
   }
@@ -177,8 +182,8 @@ impl PageTable {
      if index > 1023 {
        panic!("[page table]: invalid index.");
      }
-     // Each index corresponds to a PTE (4 bytes)
-     self.as_addr()+(index * 4)
+     // Each index corresponds to a PTE
+     self.as_addr()+(index * PTE_SIZE)
   }
   /// Set the page table to `value`
   pub fn pageset(&self, value: u8) {
@@ -230,7 +235,7 @@ pub fn walk(mut pgt: PageTable, va: Addr, alloc: bool)
   // Check if PTE is valid
   if pte.check_fields(PTE_V) {
    // Next level page if it valid
-   pgt = PageTable::new(pte.to_addr());
+   pgt = PageTable::new(pte.get_addr());
   } else if alloc {
    // Allocate a frame for the next level page
    // if it is not valid
@@ -243,14 +248,14 @@ pub fn walk(mut pgt: PageTable, va: Addr, alloc: bool)
 
    // Create the PTE that stores the address for the
    // leaf page table
-   pte.to_pte(frame.unwrap());
+   pte.set_addr(frame.unwrap());
    pte.write_fields(PTE_V);
  
    // Write the update the PTE in the page table
    pgt.write_pte(pte, index);
  
    // Next level page table (leaf page table)
-   pgt = PageTable::new(pte.to_addr());
+   pgt = PageTable::new(pte.get_addr());
    // Clear the page
    pgt.pageset(0);
   } else {
@@ -260,6 +265,102 @@ pub fn walk(mut pgt: PageTable, va: Addr, alloc: bool)
   index = find_index(0, va.clone());
   
   Some((pgt, index))
+}
+
+/// Walk the levels of the pagetable to
+/// determine which virtual addresses are mapped
+/// and free their physical memory 
+/// # Arguments
+/// - `pgt`: pagetable to be freed
+pub fn free_addr_space(pgt: PageTable) {
+
+}
+
+/// Walk the levels of the pagetable to
+/// determine which virtual addresses are mapped
+/// and allocate new physical ones to them 
+/// # Arguments
+/// - `pgt`: pagetable to be copied
+/// # Return
+/// Option containing the new pagetable, None if
+/// the copy was unsuccessful
+pub fn 
+copy_addr_space(pgt1: PageTable) 
+-> Option<PageTable> {
+  // Number of PTEs in a page
+  const NUM_PTE: usize = PAGE_SIZE/PTE_SIZE;
+  
+  // Allocate a frame for the new pgt
+  let mut addr: Option<Addr> = kmalloc();
+  if addr.is_none() {
+    return None;
+  }
+  
+  let mut empty: bool = true;
+  // Level 1 new page table
+  let mut new_pgt1: PageTable;
+  // Level 0 new page table
+  let mut new_pgt0: PageTable;
+  // Level 0 target page table
+  let mut pgt0: PageTable;
+  
+  let mut pte: PageTableEntry;
+  
+  new_pgt1 = PageTable::new(addr.unwrap());
+  
+  // Walk through level 1
+  for i in 0..NUM_PTE {
+    pte = pgt1.read_pte(i);
+    
+    // Check if the PTE is empty
+    if pte == PageTableEntry(0) {
+      continue;
+    }
+    
+    // Allocate a new physical addr for the
+    // next pagetable in new_pgt1
+    addr = kmalloc();
+    if addr.is_none() {
+      free_addr_space(new_pgt1);
+      return None;
+    }
+    
+    empty = false;
+    
+    // Level 0 page tables
+    pgt0 = PageTable::new(pte.get_addr());
+    new_pgt0 = PageTable::new(addr.clone().unwrap()); 
+    
+    // Save new address in the PTE
+    pte.set_addr(addr.unwrap());
+    // Save PTE in the page table
+    new_pgt1.write_pte(pte, i);
+    
+    // Walk through level 0
+    for j in 0..NUM_PTE {
+      pte = pgt0.read_pte(j);
+    
+      // Check if the PTE is empty
+      if pte == PageTableEntry(0) {
+        continue;
+      }
+      
+      addr = kmalloc();
+      if addr.is_none() {
+        free_addr_space(new_pgt1);
+        return None;
+      }
+      
+      pte.set_addr(addr.unwrap());
+      new_pgt0.write_pte(pte, j);
+    }
+  }
+  
+  if empty {
+    free_addr_space(new_pgt1);
+    return None;
+  }
+  Some(new_pgt1)
 }
 
 /// Format address to satp register

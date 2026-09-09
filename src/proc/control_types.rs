@@ -6,6 +6,7 @@
 use super::spin::Mutex;
 use crate::riscv::memory_types::{Addr, PageTable};
 use crate::trap::trap_types::{Context, Trapframe};
+use crate::memory::virtual_memory::{free_proc_image};
 use crate::memory::frame_alloc::kfree;
 
 /// Possible process states
@@ -67,11 +68,8 @@ impl Pcb {
     // Check if there is a trapframe allocated
     if self.trapframe.is_none() {
       panic!("[PCB]: no Trapframe to free.");
-    }
-    
-    let tpf_addr: Addr = self.trapframe.clone().unwrap();
-      
-    kfree(tpf_addr);
+    }      
+    kfree(self.trapframe.clone().unwrap());
     self.trapframe = None;
   }
   /// Get the trapframe
@@ -105,8 +103,7 @@ impl Pcb {
     // Check if there is a pagetable allocated
     if self.pagetable.is_none() {
       panic!("[PCB]: no Pagetable to free.");
-    }
-      
+    } 
     kfree(self.pagetable.clone().unwrap().as_addr());
     self.pagetable = None;
   }
@@ -120,19 +117,18 @@ impl Pcb {
   
   /// Free the process allocated memory
   pub fn free_memory(&mut self) {
-    // Free Trapframe page
-    self.free_trapframe();
+    if self.trapframe.is_some() {
+      // Free Trapframe page
+      self.free_trapframe();
+    }
     
-    // TODO: free process memory
-    self.size = 0;
-    
-    // Free pagetable pade
-    self.free_pagetable();
-  }
-  
-  /// Reset process PCB
-  pub fn free_pcb(&mut self) {
-    *self = Pcb::new();
+    if self.pagetable.is_some() {
+      self.size = 0;
+      free_proc_image(self.pagetable.clone().unwrap());
+      
+      // Free pagetable pade
+      self.free_pagetable();
+    }
   }
 }
 
