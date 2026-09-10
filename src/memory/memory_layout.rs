@@ -7,13 +7,12 @@
 
 use crate::config::constants::{RAM_SIZE, PAGE_SIZE};
 use crate::riscv::memory_types::{MAX_VIRT_ADDR};
+use crate::trap::uservec::*;
 
 // These simbols come from linker.ld
 unsafe extern "C" {
   /// First kernel address
   static skernel: u8;
-  /// Uservec address
-  static uvec: u8;
   /// Last address of kernel's text section
   static etext: u8;
   /// Last address of kernel memory
@@ -36,8 +35,8 @@ pub fn skernel_addr() -> u64 {
   unsafe { &skernel as *const u8 as u64 }
 }
 /// Address of the uservec code
-pub fn uvec_addr() -> u64 {
-  unsafe { &uvec as *const u8 as u64 }
+pub fn uservec_addr() -> u64 {
+  unsafe { uservec as *const() as u64 }
 }
 /// Address where .text section ends
 pub fn etext_addr() -> u64 {
@@ -60,4 +59,13 @@ pub fn first_addr() -> u64 {
   
   // First multiple of PAGE_SIZE after ekernel
   ekernel_addr().div_ceil(page_size) * page_size
+}
+
+/// Return the virtual address of userret
+pub fn userret_addr() -> usize {
+  const VEC: *const() = uservec as *const();
+  const RET: *const() = userret as *const();
+  unsafe {
+    USERVEC + (RET.offset_from(VEC)) as usize
+  }
 }

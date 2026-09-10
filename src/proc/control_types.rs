@@ -4,9 +4,9 @@
 //! for controlling processes and cpu state.
 
 use super::spin::Mutex;
-use crate::riscv::memory_types::{Addr, PageTable};
+use crate::riscv::memory_types::{Addr, PageTable, 
+                                 free_addr_space};
 use crate::trap::trap_types::{Context, Trapframe};
-use crate::memory::virtual_memory::{free_proc_image};
 use crate::memory::frame_alloc::kfree;
 
 /// Possible process states
@@ -30,8 +30,8 @@ pub struct Pcb {
   pub exit_status: i32, // Exit status
   pub pid: usize,       // Process ID
   
-  // Private fields that only one context accesses at a time
-  pub kstack: Option<Addr>, // Address of the process kernel stack
+  // Fields that only one context accesses at a time
+  kstack: Option<Addr>, // Address of the process kernel stack
   pub size: usize,          // Size of process memory in bytes
   pagetable: Option<PageTable>, // Process page table
   trapframe: Option<Addr>,  // Process trapframe page
@@ -150,9 +150,9 @@ impl Pcb {
     }
     
     if self.pagetable.is_some() {
+      free_addr_space(self.pagetable.clone().unwrap());
       self.size = 0;
-      free_proc_image(self.pagetable.clone().unwrap());
-      
+     
       // Free pagetable pade
       self.free_pagetable();
     }

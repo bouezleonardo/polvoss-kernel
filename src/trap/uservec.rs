@@ -164,4 +164,6 @@ global_asm!(r#"
 unsafe extern "C" {
   /// Accessible uservec symbol for Rust code
   pub fn uservec();
+  /// Accessible userrec symbol for Rust code
+  pub fn userret(satp: usize) -> !;
 }

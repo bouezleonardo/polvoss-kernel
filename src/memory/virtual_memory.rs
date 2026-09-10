@@ -124,7 +124,7 @@ pub fn init_virtual_memory() {
              (last_addr()-etext_addr()) as usize, PTE_R|PTE_W);
   
   // Map USERVEC
-  kernel_map(pgt.clone(), USERVEC as u64, uvec_addr(), PAGE_SIZE, PTE_R|PTE_X);
+  kernel_map(pgt.clone(), USERVEC as u64, uservec_addr(), PAGE_SIZE, PTE_R|PTE_X);
   
   unsafe { KERNEL_PAGETABLE = pgt.as_integer(); }
 }
@@ -345,17 +345,9 @@ pub fn copy_proc_image(
   // Update dst's PCB
   dst.init_trapframe(pgt0.read_pte(i).get_addr());
   dst.init_pagetable(dst_pgt.unwrap());
+  dst.size = src.size;
   
   true
-}
-
-/// Free a process' memory image. That is, mark
-/// all pages that hold segments in memory as 
-/// free
-/// # Arguments
-/// - `pgt`: pagetable that maps 
-pub fn free_proc_image(pgt: PageTable) {
-  free_addr_space(pgt.clone());
 }
 
 /// Allocate a kernel stack for the process

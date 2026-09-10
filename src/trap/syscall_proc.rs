@@ -14,9 +14,11 @@ use crate::proc::processing::{current_proc_unwrap,
 use crate::proc::control_types::{Pcb, ProcState, SIGKILL};
 use crate::proc::spin::*;
 use crate::proc::sync::*;
-use crate::riscv::memory_types::{Addr, PageTable};
+use crate::riscv::memory_types::{Addr, PageTable, satp_format};
+use crate::memory::memory_layout::userret_addr;
 use super::clock::{TICKS, TICKS_CVAR};
 use super::trap_types::Trapframe;
+use super::trap_handlers::{prepare_return};
 
 /// Syncronize kill() and pause()
 static KILL_CVAR: Condvar = Condvar::new();
@@ -46,6 +48,37 @@ pub fn kexit(status: i32) -> ! {
   
   // Call syscall function
   sys_exit();
+}
+
+/// The first scheduling of a child process
+/// created in sys_fork comes here. This prepares
+/// the return of the child to usermode
+fn forkret() -> ! {
+  // Current process (child)
+  let proc: &'static Mutex<Pcb> = 
+    current_proc_unwrap("forkret");
+  
+  let mut child: MutexGuard<Pcb> = proc.lock();
+  
+  let mut tpf: Trapframe = child.trapframe();
+  tpf.a0 = 0; // Return value of fork
+  child.write_trapframe(tpf);
+  
+  // Prepare the return to usermode
+  prepare_return(&mut child);
+  
+  // Child pagetable
+  let satp: usize = satp_format(child.pagetable().as_integer());
+  
+  // Call userret passing the child pagetable
+  unsafe {
+    // Get function pointer from userret virtual
+    // address
+    let userret: unsafe extern "C" fn(usize) -> ! =
+      core::mem::transmute(userret_addr());
+      
+    userret(satp);
+  }
 }
 
 /***************|SYSTEM CALLS|*****************/
@@ -94,7 +127,7 @@ pub fn sys_fork() -> usize {
   if opt.is_none() {
     return usize::MAX;
   }
-  
+  // Child mutex
   let child_mtx: &'static Mutex<Pcb> = opt.unwrap();
   
   // Current process (parent)
@@ -113,9 +146,16 @@ pub fn sys_fork() -> usize {
     return usize::MAX;
   }
   
-  0
+  // Set the return address to forkret
+  child.ctx.ra = forkret as *const() as usize;
+  child.ctx.sp = child.kstack().as_integer() as usize;
+  
+  // Child is ready to run
+  child.state = ProcState::Ready;
+  
+  // Return the child's PID to the parent
+  child.pid
 }
-
 
 /// Wait for a child process termination.
 // TODO: implement wait for any PID

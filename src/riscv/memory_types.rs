@@ -8,7 +8,7 @@
 
 use core::ops::{Add, AddAssign, Sub};
 use crate::config::constants::{PAGE_SIZE};
-use crate::memory::frame_alloc::kmalloc;
+use crate::memory::frame_alloc::{kfree, kmalloc};
 use super::supervisor_mode::{write_satp, sfence_vma, SATP_SV32};
 
 // These types are intended for use on the Sv32 virtual
@@ -271,16 +271,47 @@ pub fn walk(mut pgt: PageTable, va: Addr, alloc: bool)
 /// determine which virtual addresses are mapped
 /// and free their physical memory 
 /// # Arguments
-/// - `pgt`: pagetable to be freed
-pub fn free_addr_space(pgt: PageTable) {
-
+/// - `pgt1`: pagetable to be freed
+pub fn free_addr_space(pgt1: PageTable) {
+  // Number of PTEs in a page
+  const NUM_PTE: usize = PAGE_SIZE/PTE_SIZE;
+  
+  let mut pgt0: PageTable;
+  let mut pte1: PageTableEntry;
+  let mut pte0: PageTableEntry;
+  
+  // Walk through level 1 page
+  for i in 0..NUM_PTE {
+    pte1 = pgt1.read_pte(i);
+    
+    // Check if the PTE is empty
+    if pte1 == PageTableEntry(0) {
+      continue;
+    }
+    // Walk through level 0 page
+    pgt0 = PageTable::new(pte1.get_addr());
+    for j in 0..NUM_PTE {
+      pte0 = pgt0.read_pte(j);
+      
+      // Check if the PTE is empty
+      if pte0 == PageTableEntry(0) {
+        continue;
+      }
+      // Free contents
+      kfree(pte0.get_addr());
+    }
+    // Free level 0 page
+    kfree(pte1.get_addr());
+  }
+  // Free level 1 page
+  kfree(pgt1.as_addr());
 }
 
 /// Walk the levels of the pagetable to
 /// determine which virtual addresses are mapped
 /// and allocate new physical ones to them 
 /// # Arguments
-/// - `pgt`: pagetable to be copied
+/// - `pgt1`: pagetable to be copied
 /// # Return
 /// Option containing the new pagetable, None if
 /// the copy was unsuccessful
@@ -339,7 +370,6 @@ copy_addr_space(pgt1: PageTable)
     for j in 0..NUM_PTE {
       pte = pgt0.read_pte(j);
     
-      // Check if the PTE is empty
       if pte == PageTableEntry(0) {
         continue;
       }

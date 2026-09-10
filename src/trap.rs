@@ -10,7 +10,7 @@ pub mod trap_types;
 mod kernelvec;
 
 // User trap vector (assembly)
-mod uservec;
+pub mod uservec;
 
 // Rust trap handlers
 pub mod trap_handlers;

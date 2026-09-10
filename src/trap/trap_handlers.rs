@@ -139,6 +139,7 @@ pub extern "C" fn usertrap() -> usize {
   satp_format(proc.pagetable().as_integer())
 }
 
+/// Prepare return to usermode
 pub fn prepare_return(proc: &mut MutexGuard<Pcb>) {
   // Update trapframe
   let mut tpf: Trapframe = proc.trapframe();
