@@ -4,4 +4,4 @@
 //! related mechanisms.
 
 // Executable and Linkable Format (ELF)
-mod elf;
+pub mod elf;

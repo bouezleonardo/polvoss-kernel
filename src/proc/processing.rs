@@ -10,10 +10,12 @@ use crate::riscv::supervisor_mode::{read_tp, intr_enabled};
 use crate::riscv::context_switch::*;
 
 /// Array of Pcb struct Mutexes for each process
-static PCB: [Mutex<Pcb>; NUM_PROC] = [const{Mutex::new(Pcb::new())}; NUM_PROC];
+pub static PCB: [Mutex<Pcb>; NUM_PROC] = 
+  [const{Mutex::new(Pcb::new())}; NUM_PROC];
 
 /// Array of Cpu structs for each CPU
-static mut CPU: [Cpu; NUM_CPU] = [const{Cpu::new()}; NUM_CPU];
+static mut CPU: [Cpu; NUM_CPU] = 
+  [const{Cpu::new()}; NUM_CPU];
 
 /// Next Process ID available
 static NEXT_PID: Mutex<usize> = Mutex::new(1);
@@ -51,15 +53,15 @@ pub fn current_proc_unwrap(loc: &str) -> &'static Mutex<Pcb> {
 }
 /// Set the current CPU's process.
 pub fn set_current_proc(proc: Option<&'static Mutex<Pcb>>) {
-  let id = cpu_id();
+  let id = cpu_id();  
   assert!(!intr_enabled(), "[cpus]: interrupts enabled.");
   unsafe {CPU[id].proc = proc;}
 }
 /// Get the current CPU's context.
-pub fn cpu_context() -> Context {
+pub fn cpu_context() -> *mut Context {
   let id = cpu_id();
   assert!(!intr_enabled(), "[cpus]: interrupts enabled.");
-  unsafe {CPU[id].ctx}
+  unsafe {&mut CPU[id].ctx as *mut Context}
 }
 /// Set the current CPU's context.
 pub fn set_cpu_context(ctx: Context) {
@@ -121,10 +123,6 @@ either_copyin(dst: Addr, usr_src: bool, src: Addr, len: usize)
   true
 }
 
-pub fn scheduler() -> ! {
-  loop{}
-}
-
 /// Call scheduler from a process context. Drops
 /// the process mutex guard before calling the
 /// scheduler. The caller should change the process
@@ -146,9 +144,9 @@ pub fn call_scheduler(mut proc: MutexGuard<Pcb>) {
   
   // Get process context
   let proc_ctx: *mut Context = &mut proc.ctx as *mut Context;
-  let cpu_ctx: *mut Context;
+  let cpu_ctx: *const Context;
   unsafe{
-    cpu_ctx = &mut CPU[cpu_id()].ctx as *mut Context;
+    cpu_ctx = &CPU[cpu_id()].ctx as *const Context;
   }
   
   // Save the intena
@@ -158,6 +156,8 @@ pub fn call_scheduler(mut proc: MutexGuard<Pcb>) {
   drop(proc);
   
   // Context switch from proc to the scheduler
+  // Each CPU context stays the whole time inside
+  // the loop in the scheduler()
   switch(proc_ctx, cpu_ctx);
   
   // Process coming back from scheduler, restore intena

@@ -30,13 +30,12 @@ pub const USERVEC: usize = MAX_VIRT_ADDR - PAGE_SIZE;
 /// of memory where the user data is stored when performing a trap.
 pub const TRAPFRAME: usize = USERVEC - PAGE_SIZE;
 
+/// Virtual address of a process' stack.
+pub const PSTACK: usize = TRAPFRAME - PAGE_SIZE;
+
 /// Address where the kernel starts (where entry is)
 pub fn skernel_addr() -> u64 {
   unsafe { &skernel as *const u8 as u64 }
-}
-/// Address of the uservec code
-pub fn uservec_addr() -> u64 {
-  unsafe { uservec as *const() as u64 }
 }
 /// Address where .text section ends
 pub fn etext_addr() -> u64 {
@@ -59,6 +58,11 @@ pub fn first_addr() -> u64 {
   
   // First multiple of PAGE_SIZE after ekernel
   ekernel_addr().div_ceil(page_size) * page_size
+}
+
+/// Address of the uservec code
+pub fn uservec_addr() -> u64 {
+  unsafe { uservec as *const() as u64 }
 }
 
 /// Return the virtual address of userret

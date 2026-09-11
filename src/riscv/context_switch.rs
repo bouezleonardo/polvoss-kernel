@@ -9,7 +9,7 @@ use crate::trap::trap_types::Context;
 /// - `new`: new context
 #[unsafe(naked)] // Dont add aditional assembly
 #[unsafe(no_mangle)] // Disable name mangling
-pub extern "C" fn switch(old: *mut Context, new: *mut Context) {
+pub extern "C" fn switch(old: *mut Context, new: *const Context) {
   naked_asm!(
     // Store the old context
     "sw ra, 0(a0)",
@@ -43,7 +43,7 @@ pub extern "C" fn switch(old: *mut Context, new: *mut Context) {
     "lw s10,48(a1)",
     "lw s11,52(a1)",
     
-    // Return to ra (scheduler)
+    // Return to where ra points  
     "ret",
   );
 }

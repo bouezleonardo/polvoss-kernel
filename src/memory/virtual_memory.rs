@@ -6,7 +6,7 @@
 use crate::riscv::supervisor_mode::{sum_on, sum_off};
 use crate::riscv::memory_types::*;
 use crate::memory::memory_layout::*;
-use super::frame_alloc::{kmalloc};
+use super::frame_alloc::{kmalloc, kfree};
 use crate::config::constants::{PAGE_SIZE, UART0, PLIC,
                                M_BASE, M_WIDTH, NUM_CPU,
                                M_HEIGHT, RAM_SIZE};
@@ -350,6 +350,67 @@ pub fn copy_proc_image(
   true
 }
 
+/// Initialize a process' memory image mapping  
+/// USERVEC, TRAPFRAME and PSTACK.
+/// location
+/// # Arguments
+/// - `proc`: process that will have this image
+/// # Return
+/// `true` if successful, `false` otherwise
+pub fn 
+init_proc_image(proc: &mut MutexGuard<Pcb>) 
+-> bool {
+  // Allocate a page for the pagetable
+  let opt: Option<Addr> = kmalloc();
+  
+  if opt.is_none() {
+    return false;
+  }
+
+  // Create a pagetable
+  let pgt: PageTable = PageTable::new(opt.unwrap());
+  pgt.pageset(0); // Clear page
+  
+  let mut va: Addr;
+  let mut pa: Addr;
+  
+  // Map uservec to the same physical address everywhere
+  va = Addr::new(USERVEC as u64);
+  pa = Addr::new(uservec_addr());
+  if !map(pgt.clone(), va, pa, PAGE_SIZE, PTE_R|PTE_X) {
+    free_addr_space(pgt);
+    return false;
+  }
+  
+  // Map the TRAPFRAME to the process trapframe
+  va = Addr::new(TRAPFRAME as u64);
+  pa = proc.trapframe_addr();
+  if !map(pgt.clone(), va, pa, PAGE_SIZE, PTE_R|PTE_W) {
+    free_addr_space(pgt);
+    return false;
+  }
+  
+  // Allocate a page for the process stack
+  let opt: Option<Addr> = kmalloc();
+  
+  if opt.is_none() {
+    free_addr_space(pgt);
+    return false;
+  }
+  
+  // Map process stack to PSTACK
+  va = Addr::new(PSTACK as u64);
+  pa = opt.unwrap();
+  if !map(pgt.clone(), va, pa, PAGE_SIZE, PTE_R|PTE_W|PTE_U) {
+    free_addr_space(pgt);
+    return false;
+  }
+  
+  proc.init_pagetable(pgt);
+  
+  true
+}
+
 /// Allocate a kernel stack for the process
 /// and configure it's PCB. 
 /// FIXME: this does not prepare a guard
@@ -374,4 +435,3 @@ create_kstack(proc: &mut MutexGuard<Pcb>)
 
   true
 }
-

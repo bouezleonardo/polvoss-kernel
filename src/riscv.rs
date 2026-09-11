@@ -10,9 +10,6 @@ pub mod machine_mode;
 // Supervisor mode inline assembly functions
 pub mod supervisor_mode;
 
-// Inline assembly utility functions
-pub mod utils;
-
 // Type definitions for memory management
 pub mod memory_types;
 

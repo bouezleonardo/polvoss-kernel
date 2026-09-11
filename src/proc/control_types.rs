@@ -65,7 +65,7 @@ impl Pcb {
     self.trapframe = Some(addr);
   }
   /// Free the trapframe page
-  fn free_trapframe(&mut self) {
+  pub fn free_trapframe(&mut self) {
     // Check if there is a trapframe allocated
     if self.trapframe.is_none() {
       panic!("[PCB]: no Trapframe to free.");
@@ -73,7 +73,7 @@ impl Pcb {
     kfree(self.trapframe.clone().unwrap());
     self.trapframe = None;
   }
-  /// Get the trapframe
+  /// Read the trapframe
   pub fn trapframe(&self) -> Trapframe {
     if self.trapframe.is_none() {
       panic!("[PCB]: no Trapframe to read.");
@@ -85,11 +85,18 @@ impl Pcb {
   /// Write the trapframe
   pub fn write_trapframe(&mut self, frame: Trapframe) {
     if self.trapframe.is_none() {
-      panic!("[PCB]: no Trapframe to read");
+      panic!("[PCB]: no Trapframe to write.");
     }
     
     let tpf: Addr = self.trapframe.clone().unwrap();
     tpf.write::<Trapframe>(frame);
+  }
+  /// Get the trapframe address
+  pub fn trapframe_addr(&self) -> Addr {
+    if self.trapframe.is_none() {
+      panic!("[PCB]: no Trapframe address.");
+    }
+    self.trapframe.clone().unwrap()
   }
   
   /// Init pagetable memory
@@ -101,12 +108,13 @@ impl Pcb {
     self.pagetable = Some(pgt);
   }
   /// Free the pagetable page
-  fn free_pagetable(&mut self) {
+  pub fn free_pagetable(&mut self) {
     // Check if there is a pagetable allocated
     if self.pagetable.is_none() {
       panic!("[PCB]: no Pagetable to free.");
     } 
-    kfree(self.pagetable.clone().unwrap().as_addr());
+    free_addr_space(self.pagetable.clone().unwrap());
+    self.size = 0;
     self.pagetable = None;
   }
   /// Get the pagetable
@@ -150,9 +158,6 @@ impl Pcb {
     }
     
     if self.pagetable.is_some() {
-      free_addr_space(self.pagetable.clone().unwrap());
-      self.size = 0;
-     
       // Free pagetable pade
       self.free_pagetable();
     }

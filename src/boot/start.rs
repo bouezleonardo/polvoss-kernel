@@ -13,9 +13,10 @@ use crate::proc::processing::{cpu_id};
 use crate::trap::plic::{init_plic, plic_enable};
 use crate::trap::trap_handlers::{install_kernelvec};
 use crate::memory::frame_alloc::{init_frame_alloc};
-use crate::riscv::supervisor_mode::{intr_on, read_sstatus, SSTATUS_SUM};
+use crate::riscv::supervisor_mode::{intr_on};
 use crate::memory::virtual_memory::{init_virtual_memory, 
                                     use_virtual_memory};
+use crate::proc::scheduler::*;
 
 /// Startup the higher kernel funtionality
 pub fn start() -> ! {
@@ -49,10 +50,10 @@ pub fn start() -> ! {
       print!("\n\r({} x {} = {})", i, i, i*i);
     }
     
-    print!("\n\r{}", read_sstatus()&SSTATUS_SUM);
     intr_on();
   }
   plic_enable();
   
-  loop{}
+  // Call scheduler
+  scheduler();
 }
