@@ -5,7 +5,8 @@
 
 use crate::config::constants::{NUM_PROC, TICK_TIME};
 use crate::memory::virtual_memory::{copyout, copy_proc_image,
-                                    create_kstack};
+                                    create_kstack, free_proc_image,
+                                    free_kstack};
 use crate::memory::frame_alloc::{kmalloc};
 use crate::proc::processing::{current_proc_unwrap,
                               current_proc_child,
@@ -103,7 +104,7 @@ pub fn sys_exit() -> ! {
   proc.state = ProcState::Zombie;
   
   // Free process' address space and Trapframe
-  proc.free_memory();
+  free_proc_image(&mut proc);
   
   // Notify all processes waiting
   EXIT_CVAR.notify_all();
@@ -141,7 +142,7 @@ pub fn sys_fork() -> usize {
   // kernel stack for the process
   if !copy_proc_image(&mut child, &proc.lock()) ||
     !create_kstack(&mut child) {
-    child.free_memory();
+    free_proc_image(&mut child);
     free_pcb(child);
     return usize::MAX;
   }
@@ -209,7 +210,9 @@ pub fn sys_waitpid() -> usize {
   }
   
   // Free child's kstack and PCB
-  guard.free_kstack();
+  if !free_kstack(&mut guard) {
+    panic!("[waitpid]: failed to free child's kstack.");
+  }
   free_pcb(guard);
   
   pid

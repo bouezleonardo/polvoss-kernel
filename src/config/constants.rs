@@ -5,6 +5,9 @@
 /// Maximum number of processes
 pub const NUM_PROC: usize = 64;
 
+// Number of pages for a user process' stack
+pub const NUM_USTACK: usize = 1;
+
 /// Time for the timer interrupts (ms)
 pub const TICK_TIME: u64 = 100;
 

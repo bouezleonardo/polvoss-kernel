@@ -74,7 +74,7 @@ const EV_CURRENT: u8  = 1;    // e_ident[EI_VERSION] value for version
 const ET_EXEC: Elf32_Half	= 2; // Absolute addresses executable File
 
 /// RISC-V e_machine value
-const EM_RISCV: Elf32_Half = 0xF3;
+const EM_RISCV: Elf32_Half = 0xf3;
 
 /// Check whether or not the ELF is valid
 /// # Arguments

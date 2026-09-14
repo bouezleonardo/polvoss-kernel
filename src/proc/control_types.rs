@@ -4,10 +4,8 @@
 //! for controlling processes and cpu state.
 
 use super::spin::Mutex;
-use crate::riscv::memory_types::{Addr, PageTable, 
-                                 free_addr_space};
+use crate::riscv::memory_types::{Addr, PageTable};
 use crate::trap::trap_types::{Context, Trapframe};
-use crate::memory::frame_alloc::kfree;
 
 /// Possible process states
 #[derive(Copy, Clone, PartialEq)]
@@ -31,10 +29,10 @@ pub struct Pcb {
   pub pid: usize,       // Process ID
   
   // Fields that only one context accesses at a time
-  kstack: Option<Addr>, // Address of the process kernel stack
-  pub size: usize,          // Size of process memory in bytes
-  pagetable: Option<PageTable>, // Process page table
-  trapframe: Option<Addr>,  // Process trapframe page
+  pub kstack: Option<Addr>, // Address of the process kernel stack
+  pub size: Addr,           // Highest address of a process memory
+  pub pagetable: Option<PageTable>, // Process page table
+  pub trapframe: Option<Addr>,  // Process trapframe page
   pub ctx: Context,         // Kernel context for this process
   
   pub parent: Option<&'static Mutex<Pcb>>, // Parent PCB address
@@ -48,7 +46,7 @@ impl Pcb {
       exit_status: i32::MAX,
       pid: usize::MAX,
       kstack: None,
-      size: 0,
+      size: Addr::new(0),
       pagetable: None,
       trapframe: None,
       ctx: Context::new(),
@@ -63,15 +61,6 @@ impl Pcb {
       panic!("[PCB]: Trapframe already initialized.");
     }
     self.trapframe = Some(addr);
-  }
-  /// Free the trapframe page
-  pub fn free_trapframe(&mut self) {
-    // Check if there is a trapframe allocated
-    if self.trapframe.is_none() {
-      panic!("[PCB]: no Trapframe to free.");
-    }      
-    kfree(self.trapframe.clone().unwrap());
-    self.trapframe = None;
   }
   /// Read the trapframe
   pub fn trapframe(&self) -> Trapframe {
@@ -107,16 +96,6 @@ impl Pcb {
     }
     self.pagetable = Some(pgt);
   }
-  /// Free the pagetable page
-  pub fn free_pagetable(&mut self) {
-    // Check if there is a pagetable allocated
-    if self.pagetable.is_none() {
-      panic!("[PCB]: no Pagetable to free.");
-    } 
-    free_addr_space(self.pagetable.clone().unwrap());
-    self.size = 0;
-    self.pagetable = None;
-  }
   /// Get the pagetable
   pub fn pagetable(&self) -> PageTable {
     if self.pagetable.is_none() {
@@ -133,34 +112,12 @@ impl Pcb {
     }
     self.kstack = Some(addr);
   }
-  /// Free the kstack page
-  pub fn free_kstack(&mut self) {
-    // Check if there is a kstack allocated
-    if self.kstack.is_none() {
-      panic!("[PCB]: no kstack to free.");
-    } 
-    kfree(self.kstack.clone().unwrap());
-    self.kstack = None;
-  }
   /// Get the kstack
   pub fn kstack(&self) -> Addr {
     if self.kstack.is_none() {
       panic!("[PCB]: no kstack to read.");
     }
     self.kstack.clone().unwrap()
-  }
-  
-  /// Free the process allocated memory
-  pub fn free_memory(&mut self) {
-    if self.trapframe.is_some() {
-      // Free Trapframe page
-      self.free_trapframe();
-    }
-    
-    if self.pagetable.is_some() {
-      // Free pagetable pade
-      self.free_pagetable();
-    }
   }
 }
 

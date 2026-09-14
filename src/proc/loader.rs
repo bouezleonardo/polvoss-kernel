@@ -6,10 +6,16 @@
 use crate::riscv::memory_types::*;
 use crate::file::elf::*;
 
-// Load segments from the ELF file into
-// the pagetable 
+/// Load segments from the ELF file into
+/// the pagetable memory. The pagetable must
+/// have been already initialized by init_proc_image()
+/// # Arguments
+/// - `pgt`: pagetable
+/// - `file`: ELF file
+/// # Return
+/// `true` if successful, `false` otherwise
 pub fn 
-load_segments(pgt: PageTable, file: Addr) 
+load(pgt: PageTable, file: Addr) 
 -> bool {
   // Read ELF header
   let ehdr: Elf32_Ehdr = file.read::<Elf32_Ehdr>();
@@ -36,7 +42,17 @@ load_segments(pgt: PageTable, file: Addr)
       return false;
     }
     
+    // Address of the segment
+    let seg_addr: Addr = file.clone() + phdr.p_offset as usize;
     
+    // Read the
+    /*for b in 
+    
+    
+    pub p_vaddr: Elf32_Addr, // Virtual address where the segment starts
+    pub p_filesz: Elf32_Word, // Size of the file image of the segment
+    pub p_memsz: Elf32_Word, // Size of the memory image of the segment
+    pub p_flags:  Elf32_Word, // Flags for segment permissions (R/W/E)*/
   }
   
   true

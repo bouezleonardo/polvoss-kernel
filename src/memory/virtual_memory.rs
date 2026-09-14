@@ -9,7 +9,7 @@ use crate::memory::memory_layout::*;
 use super::frame_alloc::{kmalloc, kfree};
 use crate::config::constants::{PAGE_SIZE, UART0, PLIC,
                                M_BASE, M_WIDTH, NUM_CPU,
-                               M_HEIGHT, RAM_SIZE};
+                               M_HEIGHT, RAM_SIZE, NUM_USTACK};
 use crate::proc::spin::MutexGuard;
 use crate::proc::control_types::Pcb;
 
@@ -326,7 +326,6 @@ pub fn copy_proc_image(
     copy_addr_space(src.pagetable());
   
   if dst_pgt.is_none() {
-    dst.free_memory();
     return false;
   }
   
@@ -335,7 +334,6 @@ pub fn copy_proc_image(
     walk(dst_pgt.clone().unwrap(), Addr::new(TRAPFRAME as u64), false);
   
   if pte_opt.is_none() {
-    dst.free_memory();
     return false;
   }
   
@@ -345,7 +343,7 @@ pub fn copy_proc_image(
   // Update dst's PCB
   dst.init_trapframe(pgt0.read_pte(i).get_addr());
   dst.init_pagetable(dst_pgt.unwrap());
-  dst.size = src.size;
+  dst.size = src.size.clone();
   
   true
 }
@@ -361,8 +359,7 @@ pub fn
 init_proc_image(proc: &mut MutexGuard<Pcb>) 
 -> bool {
   // Allocate a page for the pagetable
-  let opt: Option<Addr> = kmalloc();
-  
+  let mut opt: Option<Addr> = kmalloc();
   if opt.is_none() {
     return false;
   }
@@ -374,7 +371,7 @@ init_proc_image(proc: &mut MutexGuard<Pcb>)
   let mut va: Addr;
   let mut pa: Addr;
   
-  // Map uservec to the same physical address everywhere
+  // Map USERVEC to the same physical address everywhere
   va = Addr::new(USERVEC as u64);
   pa = Addr::new(uservec_addr());
   if !map(pgt.clone(), va, pa, PAGE_SIZE, PTE_R|PTE_X) {
@@ -382,31 +379,105 @@ init_proc_image(proc: &mut MutexGuard<Pcb>)
     return false;
   }
   
-  // Map the TRAPFRAME to the process trapframe
-  va = Addr::new(TRAPFRAME as u64);
-  pa = proc.trapframe_addr();
-  if !map(pgt.clone(), va, pa, PAGE_SIZE, PTE_R|PTE_W) {
-    free_addr_space(pgt);
-    return false;
-  }
-  
-  // Allocate a page for the process stack
-  let opt: Option<Addr> = kmalloc();
-  
+  // Allocate a page for the process trapframe
+  opt = kmalloc();
   if opt.is_none() {
     free_addr_space(pgt);
     return false;
   }
   
-  // Map process stack to PSTACK
-  va = Addr::new(PSTACK as u64);
-  pa = opt.unwrap();
-  if !map(pgt.clone(), va, pa, PAGE_SIZE, PTE_R|PTE_W|PTE_U) {
+  // Map the TRAPFRAME to the process trapframe
+  va = Addr::new(TRAPFRAME as u64);
+  pa = opt.clone().unwrap();
+  if !map(pgt.clone(), va, pa, PAGE_SIZE, PTE_R|PTE_W) {
     free_addr_space(pgt);
     return false;
   }
+  proc.init_trapframe(opt.unwrap());
+   
+  // Map process stack
+  for i in 0..NUM_USTACK {
+    // Allocate a page for the process stack
+    opt = kmalloc();
+    if opt.is_none() {
+      free_addr_space(pgt);
+      return false;
+    }
+    
+    va = Addr::new(USTACK as u64) - PAGE_SIZE*i;
+    pa = opt.unwrap();
+    if !map(pgt.clone(), va, pa, PAGE_SIZE, PTE_R|PTE_W|PTE_U) {
+      free_addr_space(pgt);
+      return false;
+    }
+  }
   
   proc.init_pagetable(pgt);
+  
+  true
+}
+
+/// Free the process allocated memory.
+/// # Arguments
+/// - `proc`: process that will free the memory
+/// # Return
+/// `true` if the dealloc was successful, `false`
+/// otherwise
+pub fn 
+free_proc_image(proc: &mut MutexGuard<Pcb>) {
+  if proc.pagetable.is_some() {    
+    free_addr_space(proc.pagetable.clone().unwrap());
+    proc.size = Addr::new(0);
+    proc.pagetable = None;
+    
+    // The trapframe is mapped in the page table,
+    // so it's already freed
+    proc.trapframe = None;
+  }
+}
+
+pub fn
+shrink_proc_image(proc: &mut MutexGuard<Pcb>, newsz: Addr) 
+-> bool {
+  
+  
+  proc.size = newsz;
+  
+  true
+}
+
+/// Grow the address space given the old size
+/// to a new size, which are the old highest
+/// virtual address and the new highest virtual address
+pub fn
+grow_proc_image(proc: &mut MutexGuard<Pcb>, newsz: Addr, perm: u8) 
+-> bool {
+  let mut sz: Addr;
+  let oldsz: Addr = proc.size.clone();
+  
+  // Round to the next page aligned address
+  sz = next_page(oldsz.clone());
+  while sz < newsz {
+    let opt: Option<Addr> = kmalloc();
+    
+    if opt.is_none() {
+      shrink_proc_image(proc, oldsz);
+      return false;
+    }
+    
+    let pa: Addr = opt.unwrap();
+    
+    // Map sz address to the allocated memory 
+    if !map(proc.pagetable(), sz.clone(), pa.clone(), PAGE_SIZE, perm) {
+      kfree(pa);
+      shrink_proc_image(proc, oldsz);
+      return false;
+    }
+    
+    sz += PAGE_SIZE;
+  }
+  
+  proc.size = newsz;
   
   true
 }
@@ -433,5 +504,24 @@ create_kstack(proc: &mut MutexGuard<Pcb>)
 
   proc.init_kstack(kstack.unwrap());
 
+  true
+}
+
+/// Free a kernel stack for the process
+/// and configure it's PCB. 
+/// # Arguments
+/// - `proc`: process that will free the kstack
+/// # Return
+/// `true` if the dealloc was successful, `false`
+/// otherwise
+pub fn 
+free_kstack(proc: &mut MutexGuard<Pcb>) 
+-> bool {
+  // Check if there is a kstack allocated
+  if proc.kstack.is_none() {
+    return false;
+  } 
+  kfree(proc.kstack.clone().unwrap());
+  proc.kstack = None;
   true
 }

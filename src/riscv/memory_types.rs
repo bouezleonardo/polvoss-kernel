@@ -424,3 +424,8 @@ pub fn install_page_table(addr: u64) {
 pub fn prev_page(addr: Addr) -> Addr {
   Addr::new(addr.as_integer() & !(PAGE_SIZE - 1) as u64)
 }
+
+// Next address multiple of page
+pub fn next_page(addr: Addr) -> Addr {
+  prev_page(addr + PAGE_SIZE - 1)
+}

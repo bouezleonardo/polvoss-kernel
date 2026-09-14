@@ -31,7 +31,7 @@ pub const USERVEC: usize = MAX_VIRT_ADDR - PAGE_SIZE;
 pub const TRAPFRAME: usize = USERVEC - PAGE_SIZE;
 
 /// Virtual address of a process' stack.
-pub const PSTACK: usize = TRAPFRAME - PAGE_SIZE;
+pub const USTACK: usize = TRAPFRAME - PAGE_SIZE;
 
 /// Address where the kernel starts (where entry is)
 pub fn skernel_addr() -> u64 {
