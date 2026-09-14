@@ -54,7 +54,7 @@ pub fn kexit(status: i32) -> ! {
 /// The first scheduling of a child process
 /// created in sys_fork comes here. This prepares
 /// the return of the child to usermode
-fn forkret() -> ! {
+pub fn forkret() -> ! {
   // Current process (child)
   let proc: &'static Mutex<Pcb> = 
     current_proc_unwrap("forkret");
@@ -70,6 +70,9 @@ fn forkret() -> ! {
   
   // Child pagetable
   let satp: usize = satp_format(child.pagetable().as_integer());
+  
+  // Drop mutex to avoid deadlocks
+  drop(child);
   
   // Call userret passing the child pagetable
   unsafe {
@@ -149,7 +152,6 @@ pub fn sys_fork() -> usize {
   
   // Set the return address to forkret
   child.ctx.ra = forkret as *const() as usize;
-  child.ctx.sp = child.kstack().as_integer() as usize;
   
   // Child is ready to run
   child.state = ProcState::Ready;

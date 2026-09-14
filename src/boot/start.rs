@@ -9,7 +9,7 @@
 
 use crate::{print, println};
 use crate::io::console::{clear, init_console};
-use crate::proc::processing::{cpu_id};
+use crate::proc::processing::{cpu_id, start_init_proc};
 use crate::trap::plic::{init_plic, plic_enable};
 use crate::trap::trap_handlers::{install_kernelvec};
 use crate::memory::frame_alloc::{init_frame_alloc};
@@ -41,6 +41,9 @@ pub fn start() -> ! {
     
     // Console
     init_console();
+    
+    // Start init process
+    start_init_proc();
     
     for i in 1..100 {
       print!("({} x {} = {})", i, i, i*i);

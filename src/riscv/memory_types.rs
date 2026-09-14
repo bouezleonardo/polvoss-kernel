@@ -40,6 +40,10 @@ impl Addr {
   pub fn as_integer(&self) -> u64 {
     self.0
   }
+  /// Get the offset from another address
+  pub fn offset_from(&self, addr: Addr) -> i64 {
+    self.0 as i64 - addr.as_integer() as i64
+  }
   /// Get the address as a pointer
   pub fn as_ptr<T>(&self) -> *const T {
     self.0 as *const T

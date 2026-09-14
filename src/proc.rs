@@ -4,6 +4,9 @@
 //! syncronization, context switch and 
 //! cpu control.
 
+// FIXME temporary for testing
+mod init_test;
+
 // Spin lock Mutex
 pub mod spin;
 

@@ -30,7 +30,7 @@ pub struct Pcb {
   
   // Fields that only one context accesses at a time
   pub kstack: Option<Addr>, // Address of the process kernel stack
-  pub size: Addr,           // Highest address of a process memory
+  pub size: Addr,           // Program break
   pub pagetable: Option<PageTable>, // Process page table
   pub trapframe: Option<Addr>,  // Process trapframe page
   pub ctx: Context,         // Kernel context for this process

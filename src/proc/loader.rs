@@ -5,17 +5,23 @@
 
 use crate::riscv::memory_types::*;
 use crate::file::elf::*;
+use crate::memory::virtual_memory::{grow_proc_image,
+                                    walkaddr, copyout};
+use crate::config::constants::PAGE_SIZE;
+use crate::trap::trap_types::Trapframe;
+use super::control_types::Pcb;
+use super::spin::MutexGuard;
 
 /// Load segments from the ELF file into
 /// the pagetable memory. The pagetable must
 /// have been already initialized by init_proc_image()
 /// # Arguments
-/// - `pgt`: pagetable
+/// - `proc`: pagetable
 /// - `file`: ELF file
 /// # Return
 /// `true` if successful, `false` otherwise
 pub fn 
-load(pgt: PageTable, file: Addr) 
+load(proc: &mut MutexGuard<Pcb>, file: Addr) 
 -> bool {
   // Read ELF header
   let ehdr: Elf32_Ehdr = file.read::<Elf32_Ehdr>();
@@ -36,24 +42,46 @@ load(pgt: PageTable, file: Addr)
   for i in 0..ph_num {
     phdr_addr += i*ph_size;
     
-    let phdr: Elf32_Phdr = phdr_addr.read::<Elf32_Phdr>();
+    let phdr: Elf32_Phdr = 
+      phdr_addr.read::<Elf32_Phdr>();
     
     if !validate_program_header(phdr) {
       return false;
     }
     
     // Address of the segment
-    let seg_addr: Addr = file.clone() + phdr.p_offset as usize;
+    let seg_addr: Addr = 
+      file.clone() + phdr.p_offset as usize;
     
-    // Read the
-    /*for b in 
+    // Grow the process image with the virtual addresses
+    let newsz: Addr = 
+      Addr::new(phdr.p_vaddr as u64 + phdr.p_memsz as u64);
     
+    let perm: u8 = elf_to_pte_perm(phdr.p_flags);
     
-    pub p_vaddr: Elf32_Addr, // Virtual address where the segment starts
-    pub p_filesz: Elf32_Word, // Size of the file image of the segment
-    pub p_memsz: Elf32_Word, // Size of the memory image of the segment
-    pub p_flags:  Elf32_Word, // Flags for segment permissions (R/W/E)*/
+    if !grow_proc_image(proc, newsz, perm) {
+      return false;
+    }
+    
+    let mut success: bool;
+    success = copyout(proc.pagetable(), 
+                 Addr::new(phdr.p_vaddr as u64), 
+                 seg_addr, 
+                 phdr.p_filesz as usize);
+    
+    if !success {
+      return false;
+    }
   }
+  
+  // Prepare trapframe
+  let mut tpf: Trapframe = proc.trapframe();
+  
+  // Return to the program entry point after the kernel
+  tpf.epc = ehdr.e_entry as usize;
+  
+  proc.write_trapframe(tpf);
   
   true
 }
+

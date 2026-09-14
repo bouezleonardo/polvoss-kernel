@@ -12,6 +12,7 @@ use crate::config::constants::{PAGE_SIZE, UART0, PLIC,
                                M_HEIGHT, RAM_SIZE, NUM_USTACK};
 use crate::proc::spin::MutexGuard;
 use crate::proc::control_types::Pcb;
+use crate::trap::trap_types::Trapframe;
 
 /// Kernel's page table address. Should be modified
 /// only when booting by CPU 0.
@@ -85,6 +86,54 @@ perm: u8) -> bool {
     pa += PAGE_SIZE;
   }
   
+  true
+}
+
+/// Clear the PTEs for the page table 
+/// and free their memory
+/// `va` must be page-aligned
+/// # Arguments
+/// - `pgt`: page table to unmap
+/// - `va`: virtual address
+/// - `num_pages`: number of pages to unmap
+/// # Return
+/// `true` if the mapping is successful, `false` otherwise
+fn 
+unmap(pgt: PageTable, mut va: Addr, num_pages: usize, free: bool) 
+-> bool {
+  let mut pte: PageTableEntry; // Leaf PTE
+  let mut pgt_l: PageTable;    // Leaf page table
+  let mut index: usize;        // Leaf PTE index inside the page table
+  let mut opt: Option<(PageTable, usize)>; // Return from walk function
+  
+  if !va.as_integer().is_multiple_of(PAGE_SIZE as u64) {
+    return false;
+  }
+  
+  for i in 0..num_pages {
+    // Walk the page table until the leaf PTE is found 
+    opt = walk(pgt.clone(), va.clone(), false);
+    if opt.is_none() {
+      continue;
+    }
+    
+    // Get the leaf page table and index of the PTE
+    (pgt_l, index) = opt.unwrap();
+    
+    // Get the PTE from the page table
+    pte = pgt_l.read_pte(index);
+    
+    // If this PTE is valid, free the memory
+    if free && pte.check_fields(PTE_V) {
+      kfree(pte.get_addr());
+    }
+    
+    // Clear the PTE
+    pgt_l.write_pte(PageTableEntry::new(0), index);
+    
+    // Next address to free
+    va += PAGE_SIZE;
+  }
   true
 }
 
@@ -411,8 +460,13 @@ init_proc_image(proc: &mut MutexGuard<Pcb>)
       return false;
     }
   }
-  
+  // Init process page table
   proc.init_pagetable(pgt);
+  
+  // Save the stack address in the trapframe
+  let mut tpf: Trapframe = proc.trapframe();
+  tpf.sp = USTACK + PAGE_SIZE - 1; // Top of the stack
+  proc.write_trapframe(tpf);
   
   true
 }
@@ -439,19 +493,38 @@ free_proc_image(proc: &mut MutexGuard<Pcb>) {
 pub fn
 shrink_proc_image(proc: &mut MutexGuard<Pcb>, newsz: Addr) 
 -> bool {
+  if proc.size <= newsz {
+    return false;
+  } 
   
+  let mut num_pages: usize;
+  let oldsz_page: Addr = next_page(proc.size.clone());
+  let newsz_page: Addr = next_page(newsz.clone());
   
+  if oldsz_page > newsz_page {
+    // Number of pages to free
+    num_pages = oldsz_page.offset_from(newsz_page.clone()) as usize;
+    num_pages /= PAGE_SIZE;
+    
+    // Free pages
+    if !unmap(proc.pagetable(), newsz_page, num_pages, true){
+      return false;
+    }
+  }
   proc.size = newsz;
-  
   true
 }
 
-/// Grow the address space given the old size
-/// to a new size, which are the old highest
-/// virtual address and the new highest virtual address
+/// Grow the process image given a new size
+/// This extends the process' size to new
+/// size, allocating more memory
 pub fn
 grow_proc_image(proc: &mut MutexGuard<Pcb>, newsz: Addr, perm: u8) 
 -> bool {
+  if proc.size > newsz {
+    return false;
+  }
+
   let mut sz: Addr;
   let oldsz: Addr = proc.size.clone();
   
@@ -466,6 +539,8 @@ grow_proc_image(proc: &mut MutexGuard<Pcb>, newsz: Addr, perm: u8)
     }
     
     let pa: Addr = opt.unwrap();
+    // Clear page
+    pa.memset(0, PAGE_SIZE);
     
     // Map sz address to the allocated memory 
     if !map(proc.pagetable(), sz.clone(), pa.clone(), PAGE_SIZE, perm) {
@@ -503,7 +578,8 @@ create_kstack(proc: &mut MutexGuard<Pcb>)
   }
 
   proc.init_kstack(kstack.unwrap());
-
+  // Set the kernel context sp
+  proc.ctx.sp = proc.kstack().as_integer() as usize;
   true
 }
 

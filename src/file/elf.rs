@@ -10,6 +10,7 @@
 // Read the ELF spec. for detailed information.
 
 use crate::config::constants::{PAGE_SIZE};
+use crate::riscv::memory_types::{PTE_R, PTE_W, PTE_X};
 
 /********************|TYPES|********************/
 
@@ -91,6 +92,7 @@ validate_elf_header(hdr: Elf32_Ehdr)
      hdr.e_ident[EI_MAG3] != ELFMAG3 {
     return false;  
   }
+  
   // Check OS support for this ELF file
   if hdr.e_ident[EI_CLASS]   != ELFCLASS32 ||
      hdr.e_ident[EI_DATA]    != ELFDATA2LSB || 
@@ -98,10 +100,12 @@ validate_elf_header(hdr: Elf32_Ehdr)
      hdr.e_machine           != EM_RISCV {
     return false;
   }
+  
   // Check if the type is valid
   if hdr.e_type != ET_EXEC {
     return false;
   }
+  
   true
 }
 
@@ -139,10 +143,13 @@ const PT_R: Elf32_Word = 0x4; // Read permission
 pub fn 
 validate_program_header(hdr: Elf32_Phdr) 
 -> bool {
+  //panic!("here {}", hdr.p_type);
+  
   // Check the type
-  if hdr.p_type != PT_LOAD {
+  /*if hdr.p_type != PT_LOAD {
     return false;
-  }
+  }*/
+  
   const PSZ: u32 = PAGE_SIZE as u32;
   
   // Check the alignment
@@ -150,7 +157,7 @@ validate_program_header(hdr: Elf32_Phdr)
      !hdr.p_vaddr.is_multiple_of(PSZ) || 
      !hdr.p_offset.is_multiple_of(PSZ) {
     return false;
-  }
+  }  
   
   // Check sizes
   if hdr.p_memsz == 0 ||
@@ -159,11 +166,28 @@ validate_program_header(hdr: Elf32_Phdr)
   }
   
   // Check permissions
-  if hdr.p_flags != PT_X &&
-     hdr.p_flags != PT_W &&
-     hdr.p_flags != PT_R {
+  if hdr.p_flags & PT_X == 0 &&
+     hdr.p_flags & PT_W == 0 &&
+     hdr.p_flags & PT_R == 0 {
     return false;
   }
   
   true
+}
+
+/// Convert from the ELF p_flags format
+/// to RISCV PTE permissions 
+pub fn elf_to_pte_perm(p_flags: Elf32_Word) -> u8 {
+  let mut perm: u8 = 0;
+  
+  if p_flags & PT_X != 0 {
+    perm |= PTE_X;
+  }
+  if p_flags & PT_W != 0 {
+    perm |= PTE_W;
+  }
+  if p_flags & PT_R != 0 {
+    perm |= PTE_R;
+  }
+  perm
 }

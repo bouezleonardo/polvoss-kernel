@@ -2,12 +2,16 @@
 use super::control_types::*;
 use super::spin::*;
 use crate::trap::trap_types::*;
-use crate::memory::virtual_memory::{copyin};
+use crate::memory::virtual_memory::{copyin, init_proc_image,
+                                    create_kstack};
 use crate::memory::frame_alloc::*;
 use crate::config::constants::{NUM_PROC, NUM_CPU};
 use crate::riscv::memory_types::{Addr, PageTable};
 use crate::riscv::supervisor_mode::{read_tp, intr_enabled};
 use crate::riscv::context_switch::*;
+use crate::trap::syscall_proc::forkret;
+use super::loader::load;
+use super::init_test::ELF_FILE;
 
 /// Array of Pcb struct Mutexes for each process
 pub static PCB: [Mutex<Pcb>; NUM_PROC] = 
@@ -92,6 +96,41 @@ pub fn set_cpu_intena(intena: bool) {
   let id = cpu_id();
   assert!(!intr_enabled(), "[cpus]: interrupts enabled.");
   unsafe {CPU[id].intena = intena;}
+}
+
+/// Start the execution of the init process.
+/// The init process is the first process in
+/// to run in the system and is the parent
+/// of all subsequent processes that lose
+/// the parent.
+pub fn start_init_proc() {
+  // Allocate a PCB
+  let opt: Option<&'static Mutex<Pcb>> = alloc_pcb();
+  
+  if opt.is_none() {
+    panic!("[proc]: unable to allocate init process.");
+  }
+  // Get the PCB
+  let init_mtx: &'static Mutex<Pcb> = opt.unwrap();
+  let mut init: MutexGuard<Pcb> = init_mtx.lock();
+  
+  if !init_proc_image(&mut init) {
+    panic!("[proc]: failed to allocate memory for init process.");
+  }
+  if !create_kstack(&mut init) {
+    panic!("[proc]: failed to create a kstack for init process.");
+  }
+  
+  // FIXME temporary for testing
+  let test_addr: Addr = Addr::new(&ELF_FILE as *const [u8; 8940] as u64);
+  if !load(&mut init, test_addr) {
+    panic!("[proc]: failed to load program for init process.");
+  }
+  // Prepare init kernel context to go to forkret
+  // This emulates a return from sys_fork (fork syscall)
+  init.ctx.ra = forkret as *const() as usize;
+  
+  init.state = ProcState::Ready;
 }
 
 /// Copy bytes to a kernel destination from a source address
