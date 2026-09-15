@@ -42,11 +42,13 @@ load(proc: &mut MutexGuard<Pcb>, file: Addr)
   for i in 0..ph_num {
     phdr_addr += i*ph_size;
     
+    //panic!("here {} {} {}", phdr_addr.as_integer(), file.as_integer(), ehdr.e_phoff);  
+      
     let phdr: Elf32_Phdr = 
       phdr_addr.read::<Elf32_Phdr>();
     
     if !validate_program_header(phdr) {
-      return false;
+      continue;
     }
     
     // Address of the segment
@@ -59,7 +61,7 @@ load(proc: &mut MutexGuard<Pcb>, file: Addr)
     
     let perm: u8 = elf_to_pte_perm(phdr.p_flags);
     
-    if !grow_proc_image(proc, newsz, perm) {
+    if !grow_proc_image(proc, newsz, PTE_U|perm) {
       return false;
     }
     

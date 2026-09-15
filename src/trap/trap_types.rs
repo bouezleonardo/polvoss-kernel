@@ -88,6 +88,8 @@ pub struct Trapframe {
   pub t4: usize,
   pub t5: usize,
   pub t6: usize,
+  
+  pub kernel_handler: usize,
 }
 /*impl Trapframe {
   pub const fn new() -> Self {

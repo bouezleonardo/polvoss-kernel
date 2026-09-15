@@ -7,11 +7,12 @@ use crate::memory::virtual_memory::{copyin, init_proc_image,
 use crate::memory::frame_alloc::*;
 use crate::config::constants::{NUM_PROC, NUM_CPU};
 use crate::riscv::memory_types::{Addr, PageTable};
-use crate::riscv::supervisor_mode::{read_tp, intr_enabled};
+use crate::riscv::supervisor_mode::{read_tp, intr_enabled,
+                                    intr_off};
 use crate::riscv::context_switch::*;
 use crate::trap::syscall_proc::forkret;
 use super::loader::load;
-use super::init_test::ELF_FILE;
+use super::init_test::elf_addr;
 
 /// Array of Pcb struct Mutexes for each process
 pub static PCB: [Mutex<Pcb>; NUM_PROC] = 
@@ -34,14 +35,9 @@ pub fn cpu_id() -> usize {
   read_tp()
 }
 
-// All the following CPU functions must be called 
-// with interrupts disabled to avoid a process 
-// changing CPUs while holding the previous CPU's data
-
 /// Get the current CPU's process.
 pub fn current_proc() -> Option<&'static Mutex<Pcb>> {
   let id = cpu_id();
-  assert!(!intr_enabled(), "[cpus]: interrupts enabled.");
   unsafe {CPU[id].proc}
 }
 /// Get the current CPU's process PCB mutex.
@@ -55,6 +51,11 @@ pub fn current_proc_unwrap(loc: &str) -> &'static Mutex<Pcb> {
   // Get the mutex
   opt.unwrap()
 }
+
+// All the following CPU functions must be called 
+// with interrupts disabled to avoid a process 
+// changing CPUs while holding the previous CPU's data
+
 /// Set the current CPU's process.
 pub fn set_current_proc(proc: Option<&'static Mutex<Pcb>>) {
   let id = cpu_id();  
@@ -122,10 +123,12 @@ pub fn start_init_proc() {
   }
   
   // FIXME temporary for testing
-  let test_addr: Addr = Addr::new(&ELF_FILE as *const [u8; 8940] as u64);
+  let test_addr: Addr = elf_addr();
+  
   if !load(&mut init, test_addr) {
     panic!("[proc]: failed to load program for init process.");
   }
+  
   // Prepare init kernel context to go to forkret
   // This emulates a return from sys_fork (fork syscall)
   init.ctx.ra = forkret as *const() as usize;
@@ -190,9 +193,12 @@ pub fn call_scheduler(mut proc: MutexGuard<Pcb>) {
   
   // Save the intena
   let intena: bool = cpu_intena();
-  
+   
   // Drops mutex guard
   drop(proc);
+  
+  // In case interrupts were turned back on 
+  intr_off();
   
   // Context switch from proc to the scheduler
   // Each CPU context stays the whole time inside

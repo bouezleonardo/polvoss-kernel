@@ -9,6 +9,7 @@
 use core::ops::{Add, AddAssign, Sub};
 use crate::config::constants::{PAGE_SIZE};
 use crate::memory::frame_alloc::{kfree, kmalloc};
+use crate::memory::memory_layout::{uservec_addr};
 use super::supervisor_mode::{write_satp, sfence_vma, SATP_SV32};
 
 // These types are intended for use on the Sv32 virtual
@@ -301,8 +302,12 @@ pub fn free_addr_space(pgt1: PageTable) {
       if pte0 == PageTableEntry(0) {
         continue;
       }
-      // Free contents
-      kfree(pte0.get_addr());
+      
+      // Avoid trying to free USERVEC code
+      if pte0.get_addr().as_integer() != uservec_addr() {
+        // Free contents
+        kfree(pte0.get_addr());
+      }
     }
     // Free level 0 page
     kfree(pte1.get_addr());

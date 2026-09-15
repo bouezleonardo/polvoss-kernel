@@ -7,6 +7,7 @@
 
 use crate::print;
 use crate::riscv::context_switch::*;
+use crate::riscv::supervisor_mode::{intr_off, intr_on};
 use crate::trap::trap_types::Context;
 use super::spin::*;
 use super::control_types::*;
@@ -25,6 +26,9 @@ pub fn scheduler() -> ! {
   let mut print_msg: bool = true;
   
   loop{
+    intr_on();
+    intr_off();
+  
     // Get the next process to run on this CPU
     // May be `None` if there is no process to run
     opt = round_robin();

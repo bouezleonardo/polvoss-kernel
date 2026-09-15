@@ -143,8 +143,12 @@ pub fn kfree(ptr: Addr) {
     panic!("[kfree]: address not multiple of PAGE_SIZE.");
   }
   
-  if addr < first_addr() || addr > last_addr() {
-    panic!("[kfree]: address out of bounds.");
+  if addr < first_addr() {
+    panic!("[kfree]: address less than lower bound. {:#x} {:#x}", addr, first_addr());
+  }
+  
+  if addr > last_addr() {
+    panic!("[kfree]: address bigger than upper bound.");
   }
   
   if read_bit(addr) == 0 {

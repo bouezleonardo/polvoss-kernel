@@ -146,7 +146,9 @@ pub fn prepare_return(proc: &mut MutexGuard<Pcb>) {
   tpf.kernel_satp = read_satp(); // Kernel page table
   tpf.kernel_hartid = cpu_id(); // CPU ID
   tpf.kernel_sp = proc.kstack().as_integer() as usize; // kstack
-   
+  tpf.kernel_handler = usertrap as *const() as usize; // Handler
+  proc.write_trapframe(tpf);
+  
   // Set sepc to the process program counter
   write_sepc(tpf.epc);
   

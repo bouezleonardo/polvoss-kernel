@@ -167,14 +167,14 @@ pub fn init_virtual_memory() {
   // Map the kernel's text section
   kernel_map(pgt.clone(), skernel_addr(), skernel_addr(), 
              (etext_addr()-skernel_addr()) as usize, PTE_R|PTE_X);
-  
+   
   // Map the rest of the RAM
   kernel_map(pgt.clone(), etext_addr(), etext_addr(), 
              (last_addr()-etext_addr()) as usize, PTE_R|PTE_W);
   
   // Map USERVEC
   kernel_map(pgt.clone(), USERVEC as u64, uservec_addr(), PAGE_SIZE, PTE_R|PTE_X);
-  
+   
   unsafe { KERNEL_PAGETABLE = pgt.as_integer(); }
 }
 
@@ -303,14 +303,14 @@ pub fn
 copyout(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize) 
 -> bool {
   let mut va: Addr; // Virt addr of the page where dst is
-  let mut pa: Addr; // Physical addr that va maps
+  let mut pa: Addr = Addr::new(0); // Physical addr that va maps
   let mut opt: Option<Addr>; // Return of walkaddr
   let mut bytes: usize; // Number of bytes to copy from a page
   let mut offset: usize; // Offset within a page
   
   // Enable supervisor mode access to user pages
   sum_on();
-  
+
   // Loops going through pages until 
   while len > 0 {
     // Get the address of the closest previous page because
@@ -352,7 +352,7 @@ copyout(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize)
   }
   // Disable supervisor mode access to user pages
   sum_off();
-  
+ 
   true
 }
 
@@ -466,6 +466,7 @@ init_proc_image(proc: &mut MutexGuard<Pcb>)
   // Save the stack address in the trapframe
   let mut tpf: Trapframe = proc.trapframe();
   tpf.sp = USTACK + PAGE_SIZE - 1; // Top of the stack
+  
   proc.write_trapframe(tpf);
   
   true
@@ -547,11 +548,9 @@ grow_proc_image(proc: &mut MutexGuard<Pcb>, newsz: Addr, perm: u8)
       kfree(pa);
       shrink_proc_image(proc, oldsz);
       return false;
-    }
-    
+    }   
     sz += PAGE_SIZE;
   }
-  
   proc.size = newsz;
   
   true

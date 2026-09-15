@@ -52,7 +52,7 @@ pub fn last_addr() -> u64 {
   skernel_addr() + RAM_SIZE as u64
 }
 
-/// First frame address
+/// First usable frame address (outside the kernel)
 pub fn first_addr() -> u64 {
   let page_size: u64 = PAGE_SIZE as u64;
   
@@ -69,7 +69,8 @@ pub fn uservec_addr() -> u64 {
 pub fn userret_addr() -> usize {
   const VEC: *const() = uservec as *const();
   const RET: *const() = userret as *const();
+  
   unsafe {
-    USERVEC + (RET.offset_from(VEC)) as usize
+    USERVEC + (RET as usize - VEC as usize)
   }
 }

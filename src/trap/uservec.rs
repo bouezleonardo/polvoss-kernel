@@ -8,6 +8,7 @@
 
 use core::arch::global_asm;
 use crate::memory::memory_layout::{TRAPFRAME};
+use super::trap_handlers::usertrap;
 
 // Using global assembly to allow aligning the 
 // uservec function address to be used in the
@@ -84,6 +85,9 @@ global_asm!(r#"
     csrr t1, sepc
     sw t1, 12(a0)
     
+    # Get the address of the usertrap handler
+    lw t1, 140(a0)
+    
     # Wait for previous memory operations to complete
     sfence.vma zero, zero 
      
@@ -94,7 +98,7 @@ global_asm!(r#"
     sfence.vma zero, zero 
     
     # Call Rust trap handler
-    call usertrap
+    jalr ra, t1
     
     # After the trap is handled, usertrap() returns
     # here and executes userret

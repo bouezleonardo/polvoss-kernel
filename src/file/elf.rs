@@ -143,12 +143,10 @@ const PT_R: Elf32_Word = 0x4; // Read permission
 pub fn 
 validate_program_header(hdr: Elf32_Phdr) 
 -> bool {
-  //panic!("here {}", hdr.p_type);
-  
   // Check the type
-  /*if hdr.p_type != PT_LOAD {
+  if hdr.p_type != PT_LOAD {
     return false;
-  }*/
+  }
   
   const PSZ: u32 = PAGE_SIZE as u32;
   
