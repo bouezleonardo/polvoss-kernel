@@ -54,15 +54,11 @@ fn get_indexes(addr: u64) -> (usize, usize) {
 fn read_bit(addr: u64) -> u8 {
   let (i, j): (usize, usize) = get_indexes(addr);
   
-  //intr_off();
-  
   let bitmap = BITMAP.lock();
   
   // Shift the bits to the right to get the least 
   // significant bit
   let bit: u8 = bitmap[i] >> j & 1;
-  
-  //intr_on();
   
   bit
 }
@@ -77,7 +73,6 @@ fn write_bit(addr: u64, bit: u8) {
   // Mask is used to reset the j bit to 0
   let mask: u8 = !(1 << j);
   
-  //intr_off();
   let mut bitmap = BITMAP.lock();
   
   // Reset bit j in the i position
@@ -85,19 +80,12 @@ fn write_bit(addr: u64, bit: u8) {
   
   // Set bit to new value
   bitmap[i] |= bit << j;
-
-  //intr_on();
 }
 
 /// Get a free frame pointer 
 /// # Return
 /// Option containing the pointer or None
 pub fn kmalloc() -> Option<Addr> { 
-  //intr_off();
-  
-  // Return value
-  let mut ret: Option<Addr> = None;
-  
   // Last freed or allocated frame addr
   let mut latest: MutexGuard<u64> = LATEST.lock();
   
@@ -109,28 +97,30 @@ pub fn kmalloc() -> Option<Addr> {
   if next < last_addr && read_bit(next) == 0 {
     *latest = next;
     write_bit(next, 1);
-    ret = Some(Addr::new(next));
+    
+    if next < first_addr() {
+      panic!("[kmalloc]: allocating inside kernel.");
+    }
+    
+    return Some(Addr::new(next));
   }
   
   // If the page after latest was not free
-  if ret.is_none() {
-      let mut addr: u64 = first_addr();
-      
-      while addr < last_addr {
-        // Return the free frame pointer
-        if read_bit(addr) == 0 {
-          *latest = addr;
-          write_bit(addr, 1);
-          ret = Some(Addr::new(addr));
-          break;
-        }
-        
-        addr += PAGE_SIZE as u64;
-      }
+  let mut addr: u64 = first_addr();
+  
+  while addr < last_addr {
+    // Return the free frame pointer
+    if read_bit(addr) == 0 {
+      *latest = addr;
+      write_bit(addr, 1);  
+      return Some(Addr::new(addr));
+      break;
+    }
+    
+    addr += PAGE_SIZE as u64;
   }
   
-  //intr_on();
-  ret
+  None
 }
 
 /// Free an used frame

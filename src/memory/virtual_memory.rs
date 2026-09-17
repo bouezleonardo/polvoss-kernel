@@ -9,14 +9,18 @@ use crate::memory::memory_layout::*;
 use super::frame_alloc::{kmalloc, kfree};
 use crate::config::constants::{PAGE_SIZE, UART0, PLIC,
                                M_BASE, M_WIDTH, NUM_CPU,
-                               M_HEIGHT, RAM_SIZE, NUM_USTACK};
-use crate::proc::spin::MutexGuard;
+                               M_HEIGHT, RAM_SIZE, USTACK_SIZE,
+                               KSTACK_SIZE};
+use crate::proc::spin::*;
 use crate::proc::control_types::Pcb;
 use crate::trap::trap_types::Trapframe;
 
 /// Kernel's page table address. Should be modified
 /// only when booting by CPU 0.
-static mut KERNEL_PAGETABLE: u64 = 0;
+static mut KERNEL_PGT: u64 = 0;
+
+/// Number of active kstacks
+static KSTACK_COUNT: Mutex<usize> = Mutex::new(0);
 
 /// Configure the PTEs for the page tables mapping 
 /// virtual addresses starting at va to physical
@@ -27,6 +31,7 @@ static mut KERNEL_PAGETABLE: u64 = 0;
 /// - `va`: virtual address
 /// - `pa`: physical address
 /// - `size`: size of the mapping
+/// - `perm`: PTE permissions
 /// # Return
 /// `true` if the mapping is successful, `false` otherwise
 fn 
@@ -96,8 +101,9 @@ perm: u8) -> bool {
 /// - `pgt`: page table to unmap
 /// - `va`: virtual address
 /// - `num_pages`: number of pages to unmap
+/// - `free`: enable freeing the pages memory
 /// # Return
-/// `true` if the mapping is successful, `false` otherwise
+/// `true` if the unmapping is successful, `false` otherwise
 fn 
 unmap(pgt: PageTable, mut va: Addr, num_pages: usize, free: bool) 
 -> bool {
@@ -133,6 +139,34 @@ unmap(pgt: PageTable, mut va: Addr, num_pages: usize, free: bool)
     
     // Next address to free
     va += PAGE_SIZE;
+  }
+  true
+}
+
+/// Remap a physical address to a new virtual address
+/// `va` must be page-aligned
+/// # Arguments
+/// - `pgt`: page table to search
+/// - `newva`: new virtual address
+/// - `pa`: physical address
+/// - `size`: size of the mapping
+/// - `perm`: PTE permissions
+/// # Return
+/// `true` if the remapping is successful, `false` otherwise
+fn 
+remap(pgt: PageTable, mut newva: Addr, mut pa: Addr, perm: u8) 
+-> bool {
+  // Search the pagetable until oldva is found
+  let opt: Option<Addr> = pa_to_va(pgt.clone(), pa.clone());
+  if opt.is_none() {
+    return false;
+  }
+  
+  let oldva: Addr = opt.unwrap();
+  // Unmap the oldva and map the newva
+  if !unmap(pgt.clone(), oldva, 1, false) ||
+    !map(pgt, newva, pa, PAGE_SIZE, perm) {
+    return false;  
   }
   true
 }
@@ -174,15 +208,15 @@ pub fn init_virtual_memory() {
   
   // Map USERVEC
   kernel_map(pgt.clone(), USERVEC as u64, uservec_addr(), PAGE_SIZE, PTE_R|PTE_X);
-   
-  unsafe { KERNEL_PAGETABLE = pgt.as_integer(); }
+  
+  unsafe { KERNEL_PGT = pgt.as_integer(); }
 }
 
 /// Use virtual memory in this CPU
 pub fn use_virtual_memory(){
   unsafe {
     // Install the page table in the CPU
-    install_page_table(KERNEL_PAGETABLE);
+    install_page_table(KERNEL_PGT);
   }
 }
 
@@ -344,6 +378,7 @@ copyout(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize)
     // so pa + offset is the physical address of dst
     // src is in the kernel, there is no need to translate
     pa += offset;
+    
     pa.copy::<u8>(src.clone(), bytes);
     
     len -= bytes;
@@ -352,7 +387,7 @@ copyout(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize)
   }
   // Disable supervisor mode access to user pages
   sum_off();
- 
+  
   true
 }
 
@@ -445,7 +480,7 @@ init_proc_image(proc: &mut MutexGuard<Pcb>)
   proc.init_trapframe(opt.unwrap());
    
   // Map process stack
-  for i in 0..NUM_USTACK {
+  for i in 0..USTACK_SIZE {
     // Allocate a page for the process stack
     opt = kmalloc();
     if opt.is_none() {
@@ -466,7 +501,7 @@ init_proc_image(proc: &mut MutexGuard<Pcb>)
   // Save the stack address in the trapframe
   let mut tpf: Trapframe = proc.trapframe();
   tpf.sp = USTACK + PAGE_SIZE - 1; // Top of the stack
-  
+  tpf.sp -= tpf.sp % 16; // Must be 16 byte aligned 
   proc.write_trapframe(tpf);
   
   true
@@ -569,16 +604,44 @@ grow_proc_image(proc: &mut MutexGuard<Pcb>, newsz: Addr, perm: u8)
 pub fn 
 create_kstack(proc: &mut MutexGuard<Pcb>) 
 -> bool {
-  // Allocate a kstack and a guard page
-  let kstack: Option<Addr> = kmalloc();
+  let mut count: MutexGuard<usize> = KSTACK_COUNT.lock();
+  let mut pgt: PageTable; 
+  let mut page: Option<Addr>;
+  // Kernel pagetable
+  unsafe{
+    pgt = PageTable::new(Addr::new(KERNEL_PGT));
+  }
   
-  if kstack.is_none() {
+  // Allocate the first kstack page
+  page = kmalloc();
+  if page.is_none() {
     return false;
   }
-
-  proc.init_kstack(kstack.unwrap());
+  let mut sp: u64 = page.unwrap().as_integer() + PAGE_SIZE as u64 - 1;
+  sp -= sp % 16;
+  let kstack: Addr = Addr::new(sp);
+  
+  // Allocate the rest
+  for i in 1..KSTACK_SIZE {
+    page = kmalloc();
+    
+    if page.is_none() {
+      return false;
+    }
+    
+    // Base - (Offset inside stack + Other Stacks + Guard pages) * PAGE_SIZE
+    let va: usize = KSTACK - (i + *count*KSTACK_SIZE + *count)*PAGE_SIZE;
+    let newva: Addr = Addr::new(va as u64);
+    
+    map(pgt.clone(), newva, page.unwrap(), PAGE_SIZE, PTE_R|PTE_W);
+  }
+  *count += 1;
+  
+  // Top of the stack
+  proc.init_kstack(kstack);
   // Set the kernel context sp
   proc.ctx.sp = proc.kstack().as_integer() as usize;
+  
   true
 }
 
@@ -595,8 +658,16 @@ free_kstack(proc: &mut MutexGuard<Pcb>)
   // Check if there is a kstack allocated
   if proc.kstack.is_none() {
     return false;
-  } 
-  kfree(proc.kstack.clone().unwrap());
+  }
+  // Kernel pagetable
+  let mut pgt: PageTable; 
+  unsafe{
+    pgt = PageTable::new(Addr::new(KERNEL_PGT));
+  }
+  // Unmap and free the kstack pages
+  let va: Addr = proc.kstack()-KSTACK_SIZE*PAGE_SIZE;
+  unmap(pgt.clone(), va, KSTACK_SIZE,true); 
+  
   proc.kstack = None;
   true
 }

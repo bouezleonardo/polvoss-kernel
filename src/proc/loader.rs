@@ -75,7 +75,7 @@ load(proc: &mut MutexGuard<Pcb>, file: Addr)
       return false;
     }
   }
-  
+
   // Prepare trapframe
   let mut tpf: Trapframe = proc.trapframe();
   

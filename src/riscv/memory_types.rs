@@ -273,6 +273,52 @@ pub fn walk(mut pgt: PageTable, va: Addr, alloc: bool)
 }
 
 /// Walk the levels of the pagetable to
+/// find which virtual address maps to this
+/// physical one.
+/// # Arguments
+/// - `pgt1`: pagetable to search
+/// - `pa`: physical address
+pub fn pa_to_va(pgt1: PageTable, pa: Addr) -> Option<Addr> {
+  // Number of PTEs in a page
+  const NUM_PTE: usize = PAGE_SIZE/PTE_SIZE;
+  
+  let mut pgt0: PageTable;
+  let mut pte0: PageTableEntry;
+  let mut pte1: PageTableEntry;
+  
+  // Walk through level 1
+  for i in 0..NUM_PTE {
+    pte1 = pgt1.read_pte(i);
+    
+    // Check if the PTE is empty
+    if pte1 == PageTableEntry(0) {
+      continue;
+    }
+    
+    // Level 0 page tables
+    pgt0 = PageTable::new(pte1.get_addr());
+
+    // Walk through level 0
+    for j in 0..NUM_PTE {
+      pte0 = pgt0.read_pte(j);
+    
+      if pte0 == PageTableEntry(0) {
+        continue;
+      }
+      // Check if this pte stores the physical address
+      if pa == pte0.get_addr() {
+        // Indexes into the page table
+        let mut va: u64 = (i << 22 + j << 12) as u64;
+        // Offset
+        va += pa.as_integer()&0x00000111;
+        return Some(Addr::new(va as u64));
+      }
+    }
+  }
+  None
+}
+
+/// Walk the levels of the pagetable to
 /// determine which virtual addresses are mapped
 /// and free their physical memory 
 /// # Arguments
@@ -347,7 +393,6 @@ copy_addr_space(pgt1: PageTable)
   let mut pte: PageTableEntry;
   
   new_pgt1 = PageTable::new(addr);
-  
   // Walk through level 1
   for i in 0..NUM_PTE {
     pte = pgt1.read_pte(i);

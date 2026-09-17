@@ -30,6 +30,9 @@ pub const USERVEC: usize = MAX_VIRT_ADDR - PAGE_SIZE;
 /// of memory where the user data is stored when performing a trap.
 pub const TRAPFRAME: usize = USERVEC - PAGE_SIZE;
 
+/// Virtual address of the first kernel stack.
+pub const KSTACK: usize = USERVEC - PAGE_SIZE;
+
 /// Virtual address of a process' stack.
 pub const USTACK: usize = TRAPFRAME - PAGE_SIZE;
 
