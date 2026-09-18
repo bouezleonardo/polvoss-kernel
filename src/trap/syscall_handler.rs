@@ -12,21 +12,22 @@ use super::syscall_proc::*;
 use crate::print;
 
 // System call codes to invoke a system call
-const SYS_EXIT: usize = 1;
-const SYS_FORK: usize = 2;
-const SYS_READ: usize = 3;
-const SYS_WRITE: usize = 4;
-const SYS_OPEN: usize = 5;
-const SYS_CLOSE: usize = 6;
+const SYS_EXIT: usize    = 1;
+const SYS_FORK: usize    = 2;
+const SYS_READ: usize    = 3;
+const SYS_WRITE: usize   = 4;
+const SYS_OPEN: usize    = 5;
+const SYS_CLOSE: usize   = 6;
 const SYS_WAITPID: usize = 7;
-const SYS_EXECV: usize = 8;
-const SYS_PIPE: usize = 9;
-const SYS_DUP: usize = 10;
-const SYS_KILL: usize = 11;
-const SYS_PAUSE: usize = 12;
-const SYS_GETPID: usize = 13;
-const SYS_SLEEP: usize = 14;
-const SYS_UPTIME: usize = 15;
+const SYS_EXECV: usize   = 8;
+const SYS_PIPE: usize    = 9;
+const SYS_DUP: usize     = 10;
+const SYS_KILL: usize    = 11;
+const SYS_PAUSE: usize   = 12;
+const SYS_GETPID: usize  = 13;
+const SYS_SLEEP: usize   = 14;
+const SYS_UPTIME: usize  = 15;
+const SYS_SBRK: usize    = 16;
 
 /// System call handler reads a7 register from
 /// the process trapframe to dispatch a system
@@ -62,6 +63,7 @@ pub fn syscall(){
     SYS_GETPID  => ret = sys_getpid(),
     SYS_SLEEP   => ret = sys_sleep(),
     SYS_UPTIME  => ret = sys_uptime(),
+    SYS_SBRK    => ret = sys_sbrk(),
     _ => print!("\n\rUnknown system call. PID: {}", pid),
   }
   

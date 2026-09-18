@@ -12,7 +12,7 @@ pub const KSTACK_SIZE: usize = 4;
 pub const USTACK_SIZE: usize = 1;
 
 /// Time for the timer interrupts (ms)
-pub const TICK_TIME: u64 = 100;
+pub const TICK_TIME: u64 = 10;
 
 /******************|HARDWARE|********************/
 

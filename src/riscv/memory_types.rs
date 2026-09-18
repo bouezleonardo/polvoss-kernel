@@ -118,7 +118,7 @@ impl PageTableEntry {
   /// Set the physical address in the PTE
   pub fn set_addr(&mut self, addr: Addr) {
     // Clear address field
-    self.0 &= !(1 << 10);
+    self.0 &= 0x2ff;
     // Save address 
     self.0 |= ((addr.as_integer() >> 12) << 10) as usize;
   }

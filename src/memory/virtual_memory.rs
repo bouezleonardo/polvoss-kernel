@@ -378,7 +378,6 @@ copyout(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize)
     // so pa + offset is the physical address of dst
     // src is in the kernel, there is no need to translate
     pa += offset;
-    
     pa.copy::<u8>(src.clone(), bytes);
     
     len -= bytes;

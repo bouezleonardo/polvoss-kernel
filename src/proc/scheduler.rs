@@ -39,6 +39,8 @@ pub fn scheduler() -> ! {
       // Get the mutex guard
       (guard, proc) = opt.unwrap();
       
+      crate::print!("\n\rAllocating PID {}", guard.pid);
+      
       // Start process execution
       dispatch(guard, proc);
       
