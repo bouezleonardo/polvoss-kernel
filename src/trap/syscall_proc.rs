@@ -3,10 +3,12 @@
 //! This module contains the functions
 //! for system calls related to processes.
 
-use crate::config::constants::{NUM_PROC, TICK_TIME};
+use crate::config::constants::{NUM_PROC, TICK_TIME, USTACK_SIZE,
+                              PAGE_SIZE};
 use crate::memory::virtual_memory::{copyout, copy_proc_image,
                                     create_kstack, free_proc_image,
-                                    free_kstack};
+                                    free_kstack, grow_proc_image,
+                                    shrink_proc_image};
 use crate::memory::frame_alloc::{kmalloc};
 use crate::proc::processing::{current_proc_unwrap,
                               current_proc_child,
@@ -15,8 +17,9 @@ use crate::proc::processing::{current_proc_unwrap,
 use crate::proc::control_types::{Pcb, ProcState, SIGKILL};
 use crate::proc::spin::*;
 use crate::proc::sync::*;
-use crate::riscv::memory_types::{Addr, PageTable, satp_format};
-use crate::memory::memory_layout::userret_addr;
+use crate::riscv::memory_types::{Addr, PageTable, satp_format,
+                                 PTE_R, PTE_W};
+use crate::memory::memory_layout::{userret_addr, USTACK};
 use super::clock::{TICKS, TICKS_CVAR};
 use super::trap_types::Trapframe;
 use super::trap_handlers::{prepare_return};
@@ -226,13 +229,6 @@ pub fn sys_waitpid() -> usize {
   pid
 }
 
-/// Load a file and execute it with arguments.
-/// # Wrapper
-/// `int execv(const char *path, char *const argv[])`
-pub fn sys_execv() -> usize {
-  0
-}
-
 /// Send a signal to a process.
 /// # Wrapper
 /// `int kill(pid_t pid, int sig)`
@@ -344,12 +340,41 @@ pub fn sys_uptime() -> usize {
 }
 
 /// Change the location of the program break, which
-/// defines the the first location after the end of the uninitialized
-/// data segment. Increasing the program break has the effect of
-/// allocating memory to the process; decreasing the break deallocates
-/// memory.
+/// defines the the first location after the end of the
+/// data segment. Increasing the program break allocates
+/// memory to the process; decreasing it deallocates
 /// # Wrapper
-/// `void *sbrk(intptr_t increment)`
+/// `void *sbrk(int increment)`
 pub fn sys_sbrk() -> usize {
-  (*TICKS.lock() * TICK_TIME) as usize
+  // Current process PCB
+  let mut proc: MutexGuard<Pcb> = 
+    current_proc_unwrap("sbrk").lock();
+  // Read argument
+  let tpf: Trapframe = proc.trapframe();
+  
+  let oldbrk: i64 = proc.brk.as_integer() as i64;
+  let newbrk: i64 = oldbrk + tpf.a0 as i64;
+  
+  const HEAP_LIMIT: i64 = 
+    (USTACK-(USTACK_SIZE+1)*PAGE_SIZE) as i64;
+  
+  // Check if the new break address touches
+  // the the stack
+  // Proc memory image: 
+  if newbrk > oldbrk && newbrk < HEAP_LIMIT {
+    grow_proc_image(&mut proc, 
+                    Addr::new(newbrk as u64), 
+                    PTE_R|PTE_W);
+                    
+    return oldbrk as usize;
+  } else if newbrk < oldbrk && newbrk > 0 {
+    shrink_proc_image(&mut proc, Addr::new(newbrk as u64));
+    
+    return oldbrk as usize;
+  } else if newbrk == oldbrk {
+    return oldbrk as usize;
+  }
+  
+  // -1 if the break was not successful
+  usize::MAX
 }

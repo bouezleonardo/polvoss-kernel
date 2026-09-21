@@ -55,7 +55,7 @@ pub fn syscall(){
     //SYS_OPEN    => ret = sys_open(),
     //SYS_CLOSE   => ret = sys_close(),
     SYS_WAITPID => ret = sys_waitpid(),
-    SYS_EXECV   => ret = sys_execv(),
+    //SYS_EXECV   => ret = sys_execv(),
     //SYS_PIPE    => ret = sys_pipe(),
     //SYS_DUP     => ret = sys_dup(),
     SYS_KILL    => ret = sys_kill(),

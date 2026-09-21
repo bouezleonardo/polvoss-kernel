@@ -27,6 +27,13 @@ pub fn sys_close() -> usize {
   0
 }
 
+/// Load a file and execute it with arguments.
+/// # Wrapper
+/// `int execv(const char *path, char *const argv[])`
+pub fn sys_execv() -> usize {
+  0
+}
+
 /// Create pipe.
 /// # Wrapper
 /// `int pipe(int p[2]);`

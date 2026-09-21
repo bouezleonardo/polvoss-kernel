@@ -8,11 +8,14 @@ pub const NUM_PROC: usize = 64;
 // Number of pages for a process' kernel stack
 pub const KSTACK_SIZE: usize = 4;
 
-// Number of pages for a user process' stack
+// Number of pages for a process' user stack
 pub const USTACK_SIZE: usize = 1;
 
 /// Time for the timer interrupts (ms)
 pub const TICK_TIME: u64 = 10;
+
+/// Size of disk block
+pub const SECTOR_SIZE: usize = 512; 
 
 /******************|HARDWARE|********************/
 
@@ -25,7 +28,7 @@ pub const NUM_CPU: usize = 1;
 /// Size of main memory in bytes
 pub const RAM_SIZE: usize = 128 * 1024 * 1024;
 
-/// Amount of increments that correspond to ms
+/// Amount of clock increments that correspond to 1 ms
 pub const MILISECOND: u64 = 10000;
 
 /********************|MMIO|**********************/

@@ -426,7 +426,7 @@ pub fn copy_proc_image(
   // Update dst's PCB
   dst.init_trapframe(pgt0.read_pte(i).get_addr());
   dst.init_pagetable(dst_pgt.unwrap());
-  dst.size = src.size.clone();
+  dst.brk = src.brk.clone();
   
   true
 }
@@ -516,7 +516,7 @@ pub fn
 free_proc_image(proc: &mut MutexGuard<Pcb>) {
   if proc.pagetable.is_some() {    
     free_addr_space(proc.pagetable.clone().unwrap());
-    proc.size = Addr::new(0);
+    proc.brk = Addr::new(0);
     proc.pagetable = None;
     
     // The trapframe is mapped in the page table,
@@ -526,50 +526,50 @@ free_proc_image(proc: &mut MutexGuard<Pcb>) {
 }
 
 pub fn
-shrink_proc_image(proc: &mut MutexGuard<Pcb>, newsz: Addr) 
+shrink_proc_image(proc: &mut MutexGuard<Pcb>, newbrk: Addr) 
 -> bool {
-  if proc.size <= newsz {
+  if proc.brk <= newbrk {
     return false;
   } 
   
   let mut num_pages: usize;
-  let oldsz_page: Addr = next_page(proc.size.clone());
-  let newsz_page: Addr = next_page(newsz.clone());
+  let oldbrk_page: Addr = next_page(proc.brk.clone());
+  let newbrk_page: Addr = next_page(newbrk.clone());
   
-  if oldsz_page > newsz_page {
+  if oldbrk_page > newbrk_page {
     // Number of pages to free
-    num_pages = oldsz_page.offset_from(newsz_page.clone()) as usize;
+    num_pages = oldbrk_page.offset_from(newbrk_page.clone()) as usize;
     num_pages /= PAGE_SIZE;
     
     // Free pages
-    if !unmap(proc.pagetable(), newsz_page, num_pages, true){
+    if !unmap(proc.pagetable(), newbrk_page, num_pages, true){
       return false;
     }
   }
-  proc.size = newsz;
+  proc.brk = newbrk;
   true
 }
 
-/// Grow the process image given a new size
+/// Grow the process image given a new size.
 /// This extends the process' size to new
 /// size, allocating more memory
 pub fn
-grow_proc_image(proc: &mut MutexGuard<Pcb>, newsz: Addr, perm: u8) 
+grow_proc_image(proc: &mut MutexGuard<Pcb>, newbrk: Addr, perm: u8) 
 -> bool {
-  if proc.size > newsz {
+  if proc.brk > newbrk {
     return false;
   }
 
   let mut sz: Addr;
-  let oldsz: Addr = proc.size.clone();
+  let oldbrk: Addr = proc.brk.clone();
   
   // Round to the next page aligned address
-  sz = next_page(oldsz.clone());
-  while sz < newsz {
+  sz = next_page(oldbrk.clone());
+  while sz < newbrk {
     let opt: Option<Addr> = kmalloc();
     
     if opt.is_none() {
-      shrink_proc_image(proc, oldsz);
+      shrink_proc_image(proc, oldbrk);
       return false;
     }
     
@@ -580,12 +580,12 @@ grow_proc_image(proc: &mut MutexGuard<Pcb>, newsz: Addr, perm: u8)
     // Map sz address to the allocated memory 
     if !map(proc.pagetable(), sz.clone(), pa.clone(), PAGE_SIZE, perm) {
       kfree(pa);
-      shrink_proc_image(proc, oldsz);
+      shrink_proc_image(proc, oldbrk);
       return false;
     }   
     sz += PAGE_SIZE;
   }
-  proc.size = newsz;
+  proc.brk = newbrk;
   
   true
 }
