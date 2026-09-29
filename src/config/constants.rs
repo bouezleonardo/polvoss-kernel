@@ -1,9 +1,17 @@
 //! Define configuration constants.
 
+/******************|DEVICES|*********************/
+
+/// Console device number
+pub const CONSOLE: u16 = 1;
+
 /*******************|SYSTEM|*********************/
 
 /// Maximum number of processes
 pub const NUM_PROC: usize = 64;
+
+/// Maximum number of open files
+pub const NUM_FILE: usize = 64;
 
 // Number of pages for a process' kernel stack
 pub const KSTACK_SIZE: usize = 4;

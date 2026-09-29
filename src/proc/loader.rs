@@ -4,7 +4,7 @@
 //! prepares it's process image to execute.
 
 use crate::riscv::memory_types::*;
-use crate::file::elf::*;
+use crate::fs::elf::*;
 use crate::memory::virtual_memory::{grow_proc_image,
                                     walkaddr, copyout};
 use crate::config::constants::PAGE_SIZE;

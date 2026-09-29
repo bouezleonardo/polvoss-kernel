@@ -6,6 +6,8 @@
 use super::spin::Mutex;
 use crate::riscv::memory_types::{Addr, PageTable};
 use crate::trap::trap_types::{Context, Trapframe};
+use crate::fs::file::File;
+use crate::config::constants::NUM_FILE;
 
 /// Possible process states
 #[derive(Copy, Clone, PartialEq)]
@@ -35,6 +37,8 @@ pub struct Pcb {
   pub trapframe: Option<Addr>,  // Process trapframe page
   pub ctx: Context,         // Kernel context for this process
   
+  pub files: [Option<&'static Mutex<File>>; NUM_FILE], // Open files
+  
   pub parent: Option<&'static Mutex<Pcb>>, // Parent PCB address
 }
 impl Pcb {
@@ -50,6 +54,7 @@ impl Pcb {
       pagetable: None,
       trapframe: None,
       ctx: Context::new(),
+      files: [None; NUM_FILE],
       parent: None,
     }
   }
@@ -119,6 +124,39 @@ impl Pcb {
     }
     self.kstack.clone().unwrap()
   }
+  
+  /// Add file to process file table
+  pub fn 
+  add_file(&mut self, file: &'static Mutex<File>) 
+  -> bool {
+    for i in 0..NUM_FILE {
+      // Add to the first free position
+      if self.files[i].is_none() {
+        self.files[i] = Some(file);
+        return true;
+      }
+    }
+    false
+  }
+  
+  /// Remove a file from the process file table
+  pub fn 
+  remove_file(&mut self, fd: usize) 
+  -> Option<&'static Mutex<File>> {
+    // Check if the file descriptor is valid
+    if fd >= NUM_FILE {
+      panic!("[PCB]: file descriptor out of bounds.");
+    }
+    
+    let mut file: Option<&'static Mutex<File>>;
+    
+    if self.files[fd].is_some() {
+      file = self.files[fd];
+      self.files[fd] = None;
+      return file;
+    }
+    None
+  }
 }
 
 /// CPU control struct. noff and intena
@@ -135,10 +173,8 @@ impl Cpu {
   // Initialize a default CPU
   pub const fn new() -> Self {
     Self {
-      proc: None,
-      ctx: Context::new(),
-      lock_count: 0,
-      intena: false,
+      proc: None, ctx: Context::new(),
+      lock_count: 0, intena: false,
     }
   }
 }

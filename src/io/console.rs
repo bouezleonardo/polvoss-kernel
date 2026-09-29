@@ -151,14 +151,17 @@ fn process_ansi(buf: &mut [u8]) -> usize {
 /// - `usr_src`: true if the source address is from a user process
 /// - `src`: source address
 /// - `len`: length in bytes of the output
-pub fn console_write(usr_src: bool, src: Addr, len: usize) {
+pub fn 
+console_write(usr_src: bool, src: Addr, len: usize) 
+-> usize {
    // Buffer to put the data while it is being transfered
    // from the memory
    let mut buf: [u8;32] = [0;32];
-   let mut i: usize = 0; // Counter
    let mut copy_len: usize = buf.len(); // Size of the next batch to be copied
    let mut cut: usize; // Avoid cutting ansii codes between two batches
    let mut s: &str; // String slice to be printed
+   let len0: usize = len; // Starting len
+   let mut i: usize = 0; // Counter
    
    while i < len {
      // Amount of bytes to be copied is bigger than len
@@ -185,11 +188,16 @@ pub fn console_write(usr_src: bool, src: Addr, len: usize) {
      
      i += copy_len - cut;
    }
+   
+   // Amount of bytes read
+   len0 - len
 }
 
 /// Userspace read() in the console comes here
-pub fn console_read() {
-
+pub fn 
+console_read(usr_dst: bool, dst: Addr, len: usize) 
+-> usize {
+  0
 }
 
 /// Get the CTRL + chr character

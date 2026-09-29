@@ -26,7 +26,7 @@ mod memory; // Memory allocation and layout
 mod io;     // IO functionality
 mod proc;   // Processing mechanisms
 mod trap;   // Trap handling
-mod file;    // File system
+mod fs;     // File system
 
 /// Panic function
 #[panic_handler]
