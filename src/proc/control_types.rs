@@ -125,18 +125,21 @@ impl Pcb {
     self.kstack.clone().unwrap()
   }
   
-  /// Add file to process file table
+  /// Add file to process file table. Return
+  /// the file descriptor (index inside the
+  /// file table)
   pub fn 
   add_file(&mut self, file: &'static Mutex<File>) 
-  -> bool {
+  -> usize {
     for i in 0..NUM_FILE {
       // Add to the first free position
       if self.files[i].is_none() {
         self.files[i] = Some(file);
-        return true;
+        return i;
       }
     }
-    false
+    // Return -1 if unsuccessful
+    usize::MAX
   }
   
   /// Remove a file from the process file table

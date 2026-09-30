@@ -1,3 +1,15 @@
+//! File related system calls.
+//!
+//! This module contains the functions
+//! for system calls related to files.
+
+use crate::fs::file::*;
+use crate::proc::processing::current_proc_unwrap;
+use crate::proc::control_types::Pcb;
+use crate::proc::spin::*;
+use crate::riscv::memory_types::Addr;
+use super::trap_types::Trapframe;
+
 /// Read n bytes from a file and put it into a
 /// a buffer.
 /// # Wrapper 
@@ -10,14 +22,25 @@ pub fn sys_read() -> usize {
 /// # Wrapper
 /// `ssize_t write(int fd, const void *buf, size_t n)` 
 pub fn sys_write() -> usize {
-  0
+  // Current process
+  let proc: &'static Mutex<Pcb> = 
+    current_proc_unwrap("waitpid");
+  
+  // Get arguments from Trapframe
+  let tpf: Trapframe = proc.lock().trapframe();
+  let fd: usize = tpf.a0;
+  let buf: Addr = Addr::new(tpf.a1 as u64);
+  let len: usize = tpf.a2;
+  
+  write_file(fd, true, buf, len)
 }
 
 /// Open and possibly create a file or device.
 /// # Wrapper
-/// `int open(const char *file, int flags);` 
+/// `int open(const char *path, int flags);` 
 pub fn sys_open() -> usize {
-  0
+  // FIXME: testing
+  open_inode_file(&[0;1], O_RDWR)
 }
 
 /// Close a file descriptor.

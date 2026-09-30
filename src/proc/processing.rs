@@ -154,7 +154,7 @@ either_copyin(dst: Addr, usr_src: bool, src: Addr, len: usize)
     
     // Get the current process PCB
     let proc: &'static Mutex<Pcb> = opt.expect("[proc]: either_copyin.");
-    
+  
     // Copy from the user process using its pagetable
     return copyin(proc.lock().pagetable(), dst, src, len);
   }
@@ -208,6 +208,19 @@ pub fn call_scheduler(mut proc: MutexGuard<Pcb>) {
   // Process coming back from scheduler, restore intena
   set_cpu_intena(intena);
 }
+
+/// Release the CPU to be used by
+/// another process.
+pub fn yield_cpu() {
+  let mut proc: MutexGuard<Pcb> =
+    current_proc_unwrap("proc").lock();
+  
+  crate::print!("\n\rPID {} yielded", proc.pid);
+  
+  proc.state = ProcState::Ready;
+  call_scheduler(proc);
+}
+
 
 /// Find the PCB of the process that has the PID.
 /// # Arguments
@@ -315,4 +328,40 @@ pub fn alloc_pcb()-> Option<&'static Mutex<Pcb>> {
 /// Reset process PCB
 pub fn free_pcb(mut proc: MutexGuard<Pcb>) {
   *proc = Pcb::new();
+}
+
+/// Print all used Pcbs
+pub fn print_proc_stat() {
+  // Current process
+  let curr_proc: Option<&'static Mutex<Pcb>> = 
+    current_proc();
+  
+  crate::print!("\n\n\r-------|PROC STAT|--------");
+  
+  if curr_proc.is_some() {
+    let pid: usize = curr_proc.unwrap().lock().pid;
+    crate::print!("\n\rCurrent Process: PID: {}", pid);
+  }
+  
+  // Go through PCB array
+  for i in 0..NUM_PROC {
+    let proc: MutexGuard<Pcb> = PCB[i].lock();
+    
+    if proc.state != ProcState::Unused {
+      crate::print!("\n\rPCB: {}, PID: {}, ", i, proc.pid);
+      
+      if proc.state == ProcState::New {
+        crate::print!("New");
+      } else if proc.state == ProcState::Ready {
+        crate::print!("Ready");
+      } else if proc.state == ProcState::Running {
+        crate::print!("Running");
+      } else if proc.state == ProcState::Waiting {
+        crate::print!("Waiting");
+      } else if proc.state == ProcState::Zombie {
+        crate::print!("Zombie");
+      }       
+    }
+  }
+  crate::print!("\n\r--------------------------\n\r");
 }

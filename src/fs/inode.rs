@@ -98,7 +98,7 @@ open_inode(path: &[u8])
   // Inode for the console
   *(inode.unwrap().lock()) = Inode {
     open_count: 1, inum: 0,      
-    itype: 3, major: 0,        
+    itype: 4, major: 0,        
     minor: 1, first_sector: 0, 
     file_size: 0, link_count: 0,
   };
@@ -117,6 +117,22 @@ pub fn
 read_inode(inode: MutexGuard<Inode>, 
   usr_dst: bool, 
   dst: Addr, 
+  len: usize)
+-> usize {
+  0
+}
+
+/// Write to the inode's data from a buffer 
+/// in user or kernel space.
+/// # Arguments
+/// - `inode`: inode to read
+/// - `usr_src`: if the source is in userspace
+/// - `src`: source address
+/// - `len`: amount of bytes to read
+pub fn 
+write_inode(inode: MutexGuard<Inode>, 
+  usr_src: bool, 
+  src: Addr, 
   len: usize)
 -> usize {
   0

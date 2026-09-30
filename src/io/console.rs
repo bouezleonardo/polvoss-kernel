@@ -8,7 +8,7 @@
 use core::fmt;
 use core::str::from_utf8;
 use crate::proc::spin::{Mutex, MutexGuard};
-use crate::proc::processing::{either_copyin};
+use crate::proc::processing::{either_copyin, print_proc_stat};
 use crate::proc::sync::*;
 use crate::riscv::memory_types::{Addr};
 use super::monitor::*;
@@ -211,6 +211,8 @@ const CTRL_Q: u8 = ctrl(b'Q');
 const CTRL_A: u8 = ctrl(b'A');
 /// Kill line
 const CTRL_U: u8 = ctrl(b'U');
+/// Print process statistics
+const CTRL_P: u8 = ctrl(b'P');
 
 /// Treat input comming from the uart_intr
 /// # Arguments
@@ -236,6 +238,9 @@ pub fn console_intr(chr: u8) {
         while input.e_offset > input.w_offset {
           input.e_offset -= backspace();
         }
+      },
+      CTRL_P => { // Print process stats
+        print_proc_stat();
       },
       b'\x7F' => { // Delete
         if input.e_offset > input.w_offset {

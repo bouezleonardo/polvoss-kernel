@@ -7,7 +7,7 @@ use crate::riscv::supervisor_mode::*;
 use crate::riscv::memory_types::{Addr, satp_format};
 use crate::proc::processing::{cpu_id, current_proc,
                               current_proc_unwrap,
-                              terminated};
+                              terminated, yield_cpu};
 use crate::proc::control_types::*;
 use crate::proc::spin::*;
 use crate::proc::sync::*;
@@ -112,7 +112,7 @@ pub extern "C" fn usertrap() -> usize {
       clock_intr(); // Handle clock
       
       // Call the scheduler
-      //yield(); 
+      //yield_cpu(); 
     } else {
       proc = mutex.lock();
       panic!("[trap_handlers]: usertrap interrupt not handled.
@@ -196,9 +196,9 @@ pub extern "C" fn kerneltrap() {
       clock_intr(); // Handle clock
       
       // If the CPU should be given to a process
-      /*if current_proc().is_some() {
-        yield(); // Call the scheduler
-      }*/
+      if current_proc().is_some() {
+        //yield_cpu(); // Call the scheduler
+      }
     } else {
       panic!("[trap_handlers]: kerneltrap interrupt not handled.
       \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r Desc: {}", 

@@ -115,8 +115,6 @@ pub fn sys_exit() -> ! {
   // Notify all processes waiting
   EXIT_CVAR.notify_all();
   
-  crate::print!("\n\rPID {} called exit({})", proc.pid, proc.exit_status);
-  
   // Call scheduler
   call_scheduler(proc);
   
@@ -161,8 +159,6 @@ pub fn sys_fork() -> usize {
   // Child is ready to run
   child.state = ProcState::Ready;
   
-  crate::print!("\n\rPID {} called fork()", proc.lock().pid);
-  
   // Return the child's PID to the parent
   child.pid
 }
@@ -205,11 +201,9 @@ pub fn sys_waitpid() -> usize {
   
   // While child is not Zombie
   while guard.state != ProcState::Zombie {
-    crate::print!("\n\rPID {} waiting on PID {}", proc.lock().pid, guard.pid);
     // Wait until a exit() notifies waiting processes
     guard = EXIT_CVAR.wait(child, guard);
   }
-  crate::print!("\n\rPID {} woke up", proc.lock().pid);
   
   // Copy exit_status from child's PCB to the address
   // of the *status argument. Check if the stat address
@@ -317,8 +311,6 @@ pub fn sys_sleep() -> usize {
   // Get the argument for sleep()
   let mut ticks: u64 = 
   tpf.a0 as u64;
-  
-  crate::print!("\n\rPID {} called sleep({})", proc.lock().pid, ticks);
 
   // Get the current TICKS count
   guard = TICKS.lock();

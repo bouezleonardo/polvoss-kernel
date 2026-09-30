@@ -24,3 +24,11 @@ read_pipe(pipe: MutexGuard<Pipe>,
 -> usize {
   0
 }
+
+pub fn 
+write_pipe(pipe: MutexGuard<Pipe>, 
+  src: Addr, 
+  len: usize) 
+-> usize {
+  0
+}

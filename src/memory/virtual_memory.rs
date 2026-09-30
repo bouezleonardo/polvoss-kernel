@@ -10,10 +10,11 @@ use super::frame_alloc::{kmalloc, kfree};
 use crate::config::constants::{PAGE_SIZE, UART0, PLIC,
                                M_BASE, M_WIDTH, NUM_CPU,
                                M_HEIGHT, RAM_SIZE, USTACK_SIZE,
-                               KSTACK_SIZE};
+                               KSTACK_SIZE, NUM_FILE};
 use crate::proc::spin::*;
 use crate::proc::control_types::Pcb;
 use crate::trap::trap_types::Trapframe;
+use crate::fs::file::File;
 
 /// Kernel's page table address. Should be modified
 /// only when booting by CPU 0.
@@ -411,10 +412,12 @@ pub fn copy_proc_image(
   if dst_pgt.is_none() {
     return false;
   }
+  dst.init_pagetable(dst_pgt.clone().unwrap());
+  dst.brk = src.brk.clone();
   
   // Get the leaf pgt and index for TRAPFRAME
   let pte_opt: Option<(PageTable, usize)> = 
-    walk(dst_pgt.clone().unwrap(), Addr::new(TRAPFRAME as u64), false);
+    walk(dst_pgt.unwrap(), Addr::new(TRAPFRAME as u64), false);
   
   if pte_opt.is_none() {
     return false;
@@ -422,12 +425,17 @@ pub fn copy_proc_image(
   
   // Leaf page table and index for TRAPFRAME
   let (mut pgt0, i): (PageTable, usize) = pte_opt.unwrap();
-   
-  // Update dst's PCB
-  dst.init_trapframe(pgt0.read_pte(i).get_addr());
-  dst.init_pagetable(dst_pgt.unwrap());
-  dst.brk = src.brk.clone();
   
+  dst.init_trapframe(pgt0.read_pte(i).get_addr());
+  
+  // Copy parent's open files
+  for j in 0..NUM_FILE {
+    if src.files[j].is_some() {
+      // Increment the reference count
+      src.files[j].unwrap().lock().open_count += 1;
+      dst.files[j] = src.files[j];
+    }
+  }
   true
 }
 

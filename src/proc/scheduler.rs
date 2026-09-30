@@ -22,8 +22,6 @@ pub fn scheduler() -> ! {
   let mut proc: &'static Mutex<Pcb>;
   // Option containing the guard and mutex
   let mut opt: Option<(MutexGuard<Pcb>, &'static Mutex<Pcb>)>;
-  // Print message if there is no process to run
-  let mut print_msg: bool = true;
   
   loop{
     intr_on();
@@ -34,21 +32,16 @@ pub fn scheduler() -> ! {
     opt = round_robin();
     
     if opt.is_some() {
-      print_msg = true;
-      
       // Get the mutex guard
       (guard, proc) = opt.unwrap();
       
-      crate::print!("\n\rAllocating PID {}", guard.pid);
+      //crate::print!("\n\rAllocating PID {}", guard.pid);
       
       // Start process execution
       dispatch(guard, proc);
       
       // Return from the process
       set_current_proc(None);
-    } else if print_msg {
-      print!("\n\r[scheduler]: No process to run.\n\r");
-      print_msg = false;
     }
   }
 }

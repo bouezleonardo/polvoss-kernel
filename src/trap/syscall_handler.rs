@@ -9,6 +9,8 @@ use crate::proc::processing::current_proc_unwrap;
 use crate::proc::control_types::Pcb;
 use super::trap_types::Trapframe;
 use super::syscall_proc::*;
+use super::syscall_file::*;
+
 use crate::print;
 
 // System call codes to invoke a system call
@@ -51,8 +53,8 @@ pub fn syscall(){
     SYS_EXIT    => sys_exit(),
     SYS_FORK    => ret = sys_fork(),
     //SYS_READ    => ret = sys_read(),
-    //SYS_WRITE   => ret = sys_write(),
-    //SYS_OPEN    => ret = sys_open(),
+    SYS_WRITE   => ret = sys_write(),
+    SYS_OPEN    => ret = sys_open(),
     //SYS_CLOSE   => ret = sys_close(),
     SYS_WAITPID => ret = sys_waitpid(),
     //SYS_EXECV   => ret = sys_execv(),

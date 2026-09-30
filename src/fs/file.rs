@@ -15,9 +15,11 @@ use super::inode::*;
 use super::pipe::*;
 
 // File flags
-const O_RDONLY: u32   = 1 << 0; // Read-only
-const O_WRONLY: u32   = 1 << 1; // Write-only
-const O_RDWR: u32     = 1 << 2; // Read-write
+pub const O_RDONLY: u32   = 1 << 0; // Read-only
+pub const O_WRONLY: u32   = 1 << 1; // Write-only
+pub const O_RDWR: u32     = 1 << 2; // Read-write
+
+// Open flags
 const O_CREAT: u32    = 1 << 3; // Create
 
 // File types
@@ -112,16 +114,17 @@ fn free_file(mut file: MutexGuard<File>) {
 /// - `path`: inode path in the file system
 /// - `flags`: file flags
 /// # Return
-/// `true` if successful, `false` otherwise.
+/// The file descriptor if successful, -1 otherwise.
+/// usize::MAX converts to -1 in signed integer.
 pub fn 
 open_inode_file(path: &[u8], flags: u32) 
--> bool {
+-> usize {
   // Check if the flags are valid
   if flags & O_RDONLY == 0 && 
     flags & O_WRONLY == 0 &&
     flags & O_RDWR == 0 ||
     flags & (O_RDONLY|O_WRONLY) == O_RDONLY|O_WRONLY {
-    return false;
+    return usize::MAX;
   }
   
   // Get the current process
@@ -133,14 +136,14 @@ open_inode_file(path: &[u8], flags: u32)
   inode_opt = open_inode(path);
   
   if inode_opt.is_none() {
-    return false;
+    return usize::MAX;
   }
   
   let file_opt: Option<&'static Mutex<File>> = 
     alloc_file();
   
   if file_opt.is_none() {
-    return false;
+    return usize::MAX;
   }
   
   let mut file: MutexGuard<File> = 
@@ -158,7 +161,7 @@ open_inode_file(path: &[u8], flags: u32)
     inode.itype != DEV &&
     inode.itype != SLINK {
     free_file(file);
-    return false;
+    return usize::MAX;
   }
   file.ftype = inode.itype;
   
@@ -170,17 +173,22 @@ open_inode_file(path: &[u8], flags: u32)
     
     if file.dev.is_none() {
       free_file(file);
-      return false;
+      return usize::MAX;
     }
   }
   
+  // Set file flags
+  file.flags = flags;
+  
   // Add file to the process table
-  if !proc.add_file(file_opt.unwrap()) {
+  let fd: usize = proc.add_file(file_opt.unwrap());
+  
+  // If the add was unsuccessful
+  if fd == usize::MAX {
     free_file(file);
-    return false;
   }
   
-  true
+  fd
 }
 
 pub fn open_pipe_file(flags: u32) -> bool {
@@ -192,7 +200,7 @@ read_file(fd: usize, usr_dst: bool, dst: Addr, len: usize)
 -> usize {
   // Check file descriptor
   if fd >= NUM_FILE {
-    return 0;
+    return usize::MAX;
   }
   
   // Get the current process
@@ -200,12 +208,21 @@ read_file(fd: usize, usr_dst: bool, dst: Addr, len: usize)
     current_proc_unwrap("read_file").lock();
   
   if proc.files[fd].is_none() {
-    return 0;
+    return usize::MAX;
   }
   
   // Get the file
   let mut file: MutexGuard<File> = 
     proc.files[fd].unwrap().lock();
+  
+  // Don't need process anymore
+  drop(proc);
+  
+  // Check file flags
+  if file.flags & O_RDONLY == 0 &&
+     file.flags & O_RDWR == 0 {
+    return usize::MAX;   
+  }
   
   // Number of bytes read
   let mut bytes: usize = 0;
@@ -230,13 +247,66 @@ read_file(fd: usize, usr_dst: bool, dst: Addr, len: usize)
         bytes = (file.dev.unwrap().read)(usr_dst, dst, len);
       }
     },
-    _ => return 0,
+    _ => return usize::MAX,
   }
   bytes
 }
 
-pub fn write_file(fd: usize) -> bool {
-  true
+pub fn 
+write_file(fd: usize, usr_src: bool, src: Addr, len: usize) 
+-> usize {
+  // Check file descriptor
+  if fd >= NUM_FILE {
+    return usize::MAX;
+  }
+  
+  // Get the current process
+  let mut proc: MutexGuard<Pcb> = 
+    current_proc_unwrap("write_file").lock();
+  
+  if proc.files[fd].is_none() {
+    return usize::MAX;
+  }
+  
+  // Get the file
+  let mut file: MutexGuard<File> = 
+    proc.files[fd].unwrap().lock();
+  
+  // Don't need process anymore
+  drop(proc);
+  
+  // Check file flags
+  if file.flags & O_WRONLY == 0 &&
+     file.flags & O_RDWR == 0 {
+    return usize::MAX;   
+  }
+  
+  // Number of bytes read
+  let mut bytes: usize = 0;
+  
+  // Check file type and read accordingly
+  match file.ftype {
+    ORD|DIR|SLINK => {
+      if file.inode.is_some() {
+        bytes = write_inode(file.inode.unwrap().lock(), 
+                           usr_src,
+                           src, 
+                           len);
+      }
+    },
+    PIPE => { 
+      if file.pipe.is_some() {
+        bytes = write_pipe(file.pipe.unwrap().lock(), src, len);
+      }
+    },
+    DEV => {
+      if file.dev.is_some() {
+        bytes = (file.dev.unwrap().write)(usr_src, src, len);
+      }
+    },
+    _ => return usize::MAX,
+  }
+  bytes
 }
 
 pub fn close_file(fd: usize) -> bool {
