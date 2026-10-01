@@ -600,9 +600,7 @@ grow_proc_image(proc: &mut MutexGuard<Pcb>, newbrk: Addr, perm: u8)
 
 /// Allocate a kernel stack for the process
 /// and configure it's PCB. 
-/// FIXME: this does not prepare a guard
-/// page for the kstack, so there is a risk of
-/// an unoticed stack overflow
+/// FIXME: implement memory management here
 /// # Arguments
 /// - `proc`: process that will receive the kstack
 /// # Return

@@ -8,7 +8,8 @@
 use core::fmt;
 use core::str::from_utf8;
 use crate::proc::spin::{Mutex, MutexGuard};
-use crate::proc::processing::{either_copyin, print_proc_stat};
+use crate::proc::processing::{either_copyin, print_proc_stat,
+                              either_copyout};
 use crate::proc::sync::*;
 use crate::riscv::memory_types::{Addr};
 use super::monitor::*;
@@ -25,7 +26,11 @@ struct InputBuffer {
   w_offset: usize, // Write offset
 }
 
-/// enable/disable canonical mode
+/// Enable/disable canonical mode. When canonical mode
+/// is disabled (raw mode), this will happen:
+/// 1. The user inputs are not pre-processed by the kernel
+/// 2. The processes have total control over the terminal
+/// 3. Reads to the console are NON-BLOCKING
 static CANONICAL: Mutex<bool> = Mutex::new(true);
 
 /// Monitor struct to print to the screen
@@ -151,6 +156,8 @@ fn process_ansi(buf: &mut [u8]) -> usize {
 /// - `usr_src`: true if the source address is from a user process
 /// - `src`: source address
 /// - `len`: length in bytes of the output
+/// # Return
+/// Number of bytes written
 pub fn 
 console_write(usr_src: bool, src: Addr, len: usize) 
 -> usize {
@@ -160,7 +167,6 @@ console_write(usr_src: bool, src: Addr, len: usize)
    let mut copy_len: usize = buf.len(); // Size of the next batch to be copied
    let mut cut: usize; // Avoid cutting ansii codes between two batches
    let mut s: &str; // String slice to be printed
-   let len0: usize = len; // Starting len
    let mut i: usize = 0; // Counter
    
    while i < len {
@@ -172,7 +178,7 @@ console_write(usr_src: bool, src: Addr, len: usize)
      // address space or from some user's space. Break if it
      // fails
      if !either_copyin(Addr::to_addr(&buf), usr_src, src.clone() + i, copy_len) {
-        break;
+        return i; // Amount of bytes written to this point
      }
      copy_len = buf.len();
      
@@ -189,15 +195,78 @@ console_write(usr_src: bool, src: Addr, len: usize)
      i += copy_len - cut;
    }
    
-   // Amount of bytes read
-   len0 - len
+   // Amount of bytes written
+   len
 }
 
 /// Userspace read() in the console comes here
+/// and the data is read from the input buffer
+/// # Arguments
+/// - `usr_dst`: true if the destination is in userspace
+/// - `dst`: destination address
+/// - `len`: length in bytes
+/// # Return
+/// Number of bytes read
 pub fn 
-console_read(usr_dst: bool, dst: Addr, len: usize) 
+console_read(usr_dst: bool, mut dst: Addr, len: usize) 
 -> usize {
-  0
+  // Buffer of the output
+  let mut buf: [u8;1] = [0;1];
+  // Number of bytes read
+  let mut bytes: usize = 0;
+  let mut i: usize = 0;
+  
+  // Get the mode (canonical/raw)
+  let canon: bool = *(CANONICAL.lock());
+  
+  // Get the input buffer
+  let mut input: MutexGuard<InputBuffer> = INPUT.lock();
+  
+  // Raw mode
+  if !canon {
+    while bytes < len && input.r_offset < input.w_offset {  
+      // Offset inside circular buffer
+      let i: usize = input.r_offset % INPUT_BUF_SIZE;
+      buf[0] = input.chars[i];
+      input.r_offset += 1;
+      
+      // Copy from kernel to either user or kernel
+      if !either_copyout(dst.clone(), 
+                         usr_dst, 
+                         Addr::to_addr(&buf), 
+                         1) {
+        break;
+      }
+      bytes += 1;
+      dst += 1;
+    }
+  } else if canon {
+    let mut chr: u8 = b' ';
+      
+    // Read all bytes until the end of line
+    while bytes < len && chr != b'\n' && chr != ctrl(b'M') {
+      // Wait until there is input to read
+      while input.r_offset >= input.w_offset {
+        input = INPUT_CVAR.wait(&INPUT, input);
+      }
+      // Offset inside circular buffer
+      let i: usize = input.r_offset % INPUT_BUF_SIZE;
+      chr = input.chars[i];
+      buf[0] = chr;
+      input.r_offset += 1;
+      
+      // Copy from kernel to either user or kernel
+      if !either_copyout(dst.clone(), 
+                         usr_dst, 
+                         Addr::to_addr(&buf), 
+                         1) {
+        break;
+      }
+      bytes += 1;
+      dst += 1;
+    }
+  }
+  bytes
 }
 
 /// Get the CTRL + chr character

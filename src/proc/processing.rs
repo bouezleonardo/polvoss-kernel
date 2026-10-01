@@ -3,7 +3,7 @@ use super::control_types::*;
 use super::spin::*;
 use crate::trap::trap_types::*;
 use crate::memory::virtual_memory::{copyin, init_proc_image,
-                                    create_kstack};
+                                    create_kstack, copyout};
 use crate::memory::frame_alloc::*;
 use crate::config::constants::{NUM_PROC, NUM_CPU};
 use crate::riscv::memory_types::{Addr, PageTable};
@@ -157,6 +157,35 @@ either_copyin(dst: Addr, usr_src: bool, src: Addr, len: usize)
   
     // Copy from the user process using its pagetable
     return copyin(proc.lock().pagetable(), dst, src, len);
+  }
+  
+  // Copy len bytes from src to dst
+  dst.copy::<u8>(src, len);
+  
+  true
+}
+
+/// Copy bytes to either a user or kernel destination from
+/// a source address in kernel.
+/// # Arguments
+/// - `dst`: destination address
+/// - `usr_dst`: `true` if the destination is in userspace
+/// - `src`: source address
+/// - `len`: length in bytes of the output
+/// # Return
+/// `true` if the copy is successful, `false` otherwise.
+pub fn 
+either_copyout(dst: Addr, usr_dst: bool, src: Addr, len: usize) 
+-> bool {
+  // If it is an user address
+  if usr_dst {
+    let opt: Option<&'static Mutex<Pcb>> = current_proc();
+    
+    // Get the current process PCB
+    let proc: &'static Mutex<Pcb> = opt.expect("[proc]: either_copyout.");
+  
+    // Copy from the user process using its pagetable
+    return copyout(proc.lock().pagetable(), dst, src, len);
   }
   
   // Copy len bytes from src to dst

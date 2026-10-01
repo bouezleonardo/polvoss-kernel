@@ -5,9 +5,10 @@
 
 use super::spin::*;
 use super::processing::{current_proc_unwrap, 
-                        call_scheduler};
-use super::control_types::{Pcb, ProcState};
+                        call_scheduler, terminated};
+use super::control_types::{Pcb, ProcState, SIGKILL};
 use crate::config::constants::NUM_PROC;
+use crate::trap::syscall_proc::kexit;
 
 /// Condition variable queue.
 struct CondvarQueue {
@@ -94,11 +95,19 @@ impl Condvar {
     // Lock queue mutex
     queue = self.queue.lock();
     
-    // Push the process to the queue
-    push(Some(proc_mutex), &mut queue);
-      
     // Lock the process mutex
     proc = proc_mutex.lock();
+    
+    // Check if the process terminated
+    if terminated(&proc) {
+      drop(queue);
+      drop(guard);
+      drop(proc);
+      kexit(SIGKILL);
+    }
+    
+    // Push the process to the queue
+    push(Some(proc_mutex), &mut queue);
     
     // Change process state
     proc.state = ProcState::Waiting;
