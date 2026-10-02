@@ -52,7 +52,7 @@ pub fn syscall(){
   match tpf.a7 {
     SYS_EXIT    => sys_exit(),
     SYS_FORK    => ret = sys_fork(),
-    //SYS_READ    => ret = sys_read(),
+    SYS_READ    => ret = sys_read(),
     SYS_WRITE   => ret = sys_write(),
     SYS_OPEN    => ret = sys_open(),
     //SYS_CLOSE   => ret = sys_close(),
@@ -66,7 +66,7 @@ pub fn syscall(){
     SYS_SLEEP   => ret = sys_sleep(),
     SYS_UPTIME  => ret = sys_uptime(),
     SYS_SBRK    => ret = sys_sbrk(),
-    _ => print!("\n\rUnknown system call. PID: {}", pid),
+    _ => print!("\n\rUnknown system call by PID {}.", pid),
   }
   
   // Place return in the process trapframe

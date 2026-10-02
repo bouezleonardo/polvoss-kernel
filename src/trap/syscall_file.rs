@@ -15,7 +15,17 @@ use super::trap_types::Trapframe;
 /// # Wrapper 
 /// `ssize_t read(int fd, void *buf, size_t n)`
 pub fn sys_read() -> usize {
-  0
+  // Current process
+  let proc: &'static Mutex<Pcb> = 
+    current_proc_unwrap("waitpid");
+  
+  // Get arguments from Trapframe
+  let tpf: Trapframe = proc.lock().trapframe();
+  let fd: usize = tpf.a0;
+  let buf: Addr = Addr::new(tpf.a1 as u64);
+  let len: usize = tpf.a2;
+  
+  read_file(fd, true, buf, len)
 }
 
 /// Write n bytes from a buffer to a file.

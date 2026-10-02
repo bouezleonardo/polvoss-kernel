@@ -126,7 +126,8 @@ fn process_ansi(buf: &mut [u8]) -> usize {
   // Check which sequence it is
   if buf[pos+1] == b'['{
     match buf[pos+2] {
-      b'H' => clear(),
+      b'H' => move_cursor(0, 0),
+      b'L' => clear(),
       b'T' => {
         // Switch mode (canonical/raw)
         let mut mode: MutexGuard<bool> = CANONICAL.lock();
@@ -218,17 +219,16 @@ console_read(usr_dst: bool, mut dst: Addr, len: usize)
   
   // Get the mode (canonical/raw)
   let canon: bool = *(CANONICAL.lock());
-  
+
   // Get the input buffer
   let mut input: MutexGuard<InputBuffer> = INPUT.lock();
   
   // Raw mode
   if !canon {
     while bytes < len && input.r_offset < input.w_offset {  
-      // Offset inside circular buffer
+      input.r_offset += 1;
       let i: usize = input.r_offset % INPUT_BUF_SIZE;
       buf[0] = input.chars[i];
-      input.r_offset += 1;
       
       // Copy from kernel to either user or kernel
       if !either_copyout(dst.clone(), 
@@ -242,18 +242,23 @@ console_read(usr_dst: bool, mut dst: Addr, len: usize)
     }
   } else if canon {
     let mut chr: u8 = b' ';
-      
+    
     // Read all bytes until the end of line
-    while bytes < len && chr != b'\n' && chr != ctrl(b'M') {
+    while bytes < len { 
       // Wait until there is input to read
       while input.r_offset >= input.w_offset {
         input = INPUT_CVAR.wait(&INPUT, input);
       }
-      // Offset inside circular buffer
+      
+      input.r_offset += 1;
       let i: usize = input.r_offset % INPUT_BUF_SIZE;
       chr = input.chars[i];
       buf[0] = chr;
-      input.r_offset += 1;
+      
+      if chr == b'\n' || chr == ctrl(b'D') || 
+          chr == ctrl(b'M') {
+        break;
+      }
       
       // Copy from kernel to either user or kernel
       if !either_copyout(dst.clone(), 
@@ -266,6 +271,12 @@ console_read(usr_dst: bool, mut dst: Addr, len: usize)
       dst += 1;
     }
   }
+  
+  // Null terminator
+  either_copyout(dst.clone(), 
+                 usr_dst, 
+                 Addr::to_addr(&[0;1]), 
+                 1);
   bytes
 }
 
@@ -320,9 +331,6 @@ pub fn console_intr(chr: u8) {
         // Check if there is space for the input
         if input.e_offset-input.r_offset < INPUT_BUF_SIZE && chr != 0 {
           input.e_offset += 1;
-    
-          // Echo to the user
-          putc(chr);
           
           // Save character in the buffer
           let i: usize = input.e_offset % INPUT_BUF_SIZE;
@@ -334,6 +342,9 @@ pub fn console_intr(chr: u8) {
             
             // Wake up all processes waiting for input
             INPUT_CVAR.notify_all();
+          } else {
+            // Echo to the user
+            putc(chr);
           }
         }
       },

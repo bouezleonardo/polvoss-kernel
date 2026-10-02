@@ -230,7 +230,7 @@ read_file(fd: usize, usr_dst: bool, dst: Addr, len: usize)
   // Check file type and read accordingly
   match file.ftype {
     ORD|DIR|SLINK => {
-      if file.inode.is_some() {
+      if file.inode.is_some() { 
         bytes = read_inode(file.inode.unwrap().lock(), 
                            usr_dst,
                            dst, 
@@ -244,7 +244,9 @@ read_file(fd: usize, usr_dst: bool, dst: Addr, len: usize)
     },
     DEV => {
       if file.dev.is_some() {
-        bytes = (file.dev.unwrap().read)(usr_dst, dst, len);
+        let dev: Device = file.dev.unwrap();
+        drop(file);
+        bytes = (dev.read)(usr_dst, dst, len);
       }
     },
     _ => return usize::MAX,

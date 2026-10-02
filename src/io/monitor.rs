@@ -136,23 +136,6 @@ impl Monitor {
     }
   }
   
-  /// Find the column where a line ends
-  fn find_last_column(&self, i: usize, offset: usize) -> usize {
-    let mut col: usize = M_WIDTH-1;
-    let mut chr: u8;
-    
-    // Read the line from right to left
-    while col > 0 {
-      chr = self.read_buffer(i, col, offset);
-      // First non space character
-      if chr != b' ' {
-        break;
-      }
-      col -= 1;
-    }
-    col+1
-  }
-  
   /// Go back a character position
   /// # Return
   /// Amount of characters erased
@@ -166,16 +149,16 @@ impl Monitor {
       // The line was at the top of screen
       if self.row == 0 && self.w_offset != 0 {
         new_row = M_HEIGHT-1;
-        new_col = self.find_last_column(new_row, self.w_offset-1);
-        erased = M_WIDTH-new_col;
+        new_col = M_WIDTH-1;
+        erased = 1;
         
         self.page_up();   // Previous page
         self.scroll_up(); // Write index goes up
         self.move_cursor(new_row, new_col);
       } else if self.row > 0 {
         new_row = self.row-1;
-        new_col = self.find_last_column(new_row, self.w_offset);
-        erased = M_WIDTH-new_col;
+        new_col = M_WIDTH-1;
+        erased = 1;
         self.move_cursor(new_row, new_col);
       }
     } else {
@@ -195,7 +178,7 @@ impl Monitor {
   fn carriage_return(&mut self) {
     self.col = 0;
   }
-  /// 
+  /// Tab (8 spaces)
   fn tab(&mut self) {
     // Set col position to the next multiple 8
     self.col = (self.col + 7) / 8 * 8;
