@@ -35,17 +35,17 @@ load(proc: &mut MutexGuard<Pcb>, file: Addr)
   let ph_size: usize = ehdr.e_phentsize as usize;
   
   // First entry in the program header table
-  let mut phdr_addr: Addr = 
+  let phdr_base: Addr = 
     file.clone() + ehdr.e_phoff as usize;
+
+  let mut phdr_addr: Addr;
   
   // Walk through the program header table
   for i in 0..ph_num {
-    phdr_addr += i*ph_size;
-    
-    //panic!("here {} {} {}", phdr_addr.as_integer(), file.as_integer(), ehdr.e_phoff);  
+    phdr_addr = phdr_base.clone() + i*ph_size;  
       
     let phdr: Elf32_Phdr = 
-      phdr_addr.read::<Elf32_Phdr>();
+    phdr_addr.read::<Elf32_Phdr>();
     
     if !validate_program_header(phdr) {
       continue;
@@ -56,13 +56,15 @@ load(proc: &mut MutexGuard<Pcb>, file: Addr)
       file.clone() + phdr.p_offset as usize;
     
     // Grow the process image with the virtual addresses
-    let newsz: Addr = 
+    let newbrk: Addr = 
       Addr::new(phdr.p_vaddr as u64 + phdr.p_memsz as u64);
     
-    let perm: u8 = elf_to_pte_perm(phdr.p_flags);
-    
-    if !grow_proc_image(proc, newsz, PTE_U|perm) {
-      return false;
+    // Check if growing process image is needed
+    if proc.brk <= newbrk {
+      let perm: u8 = elf_to_pte_perm(phdr.p_flags);
+      if !grow_proc_image(proc, newbrk, PTE_U|perm) {
+        return false;
+      }
     }
     
     let mut success: bool;
@@ -75,7 +77,7 @@ load(proc: &mut MutexGuard<Pcb>, file: Addr)
       return false;
     }
   }
-
+  
   // Prepare trapframe
   let mut tpf: Trapframe = proc.trapframe();
   

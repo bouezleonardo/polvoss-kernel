@@ -4,7 +4,7 @@ use crate::memory::frame_alloc::kmalloc;
 use crate::config::constants::PAGE_SIZE;
 use crate::riscv::memory_types::Addr;
 
-pub fn elf_addr() -> Addr {  
+pub fn init_addr() -> Addr {  
   Addr::new(&ELF_FILE as *const [u8;ELF_SIZE] as u64)
 }
 

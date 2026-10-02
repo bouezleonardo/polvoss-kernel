@@ -483,3 +483,47 @@ pub fn prev_page(addr: Addr) -> Addr {
 pub fn next_page(addr: Addr) -> Addr {
   prev_page(addr + PAGE_SIZE - 1)
 }
+
+/// Walk the levels of the pagetable to
+/// printing the mappings
+/// physical one.
+/// # Arguments
+/// - `pgt1`: pagetable to print
+pub fn print_addr_space(pgt1: PageTable){
+  // Number of PTEs in a page
+  const NUM_PTE: usize = PAGE_SIZE/PTE_SIZE;
+  
+  let mut pgt0: PageTable;
+  let mut pte0: PageTableEntry;
+  let mut pte1: PageTableEntry;
+  
+  // Walk through level 1
+  crate::print!("\n\r(PGT 1): {:#x}", pgt1.as_addr().as_integer());
+  for i in 0..NUM_PTE {
+    pte1 = pgt1.read_pte(i);
+    
+    // Check if the PTE is empty
+    if pte1 == PageTableEntry(0) {
+      continue;
+    }
+    
+    // Level 0 page tables
+    pgt0 = PageTable::new(pte1.get_addr());
+    
+    crate::print!("\n\r(PGT 0)[{}]: {:#x}", i, pgt0.as_addr().as_integer());
+    
+    // Walk through level 0
+    for j in 0..NUM_PTE {
+      pte0 = pgt0.read_pte(j);
+    
+      if pte0 == PageTableEntry(0) {
+        continue;
+      }
+      
+      let va: u64 = ((i as u64) << 22) + ((j as u64) << 12);
+      
+      crate::print!("\n\r (PTE 0)[{}][{}]: v {:#x} -> p {:#x}", 
+            i, j, va, pte0.get_addr().as_integer());
+    }
+  }
+}

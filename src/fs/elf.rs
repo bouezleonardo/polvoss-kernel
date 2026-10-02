@@ -150,13 +150,6 @@ validate_program_header(hdr: Elf32_Phdr)
   
   const PSZ: u32 = PAGE_SIZE as u32;
   
-  // Check the alignment
-  if hdr.p_align != PSZ ||
-     !hdr.p_vaddr.is_multiple_of(PSZ) || 
-     !hdr.p_offset.is_multiple_of(PSZ) {
-    return false;
-  }  
-  
   // Check sizes
   if hdr.p_memsz == 0 ||
      hdr.p_memsz < hdr.p_filesz{

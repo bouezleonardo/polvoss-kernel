@@ -6,13 +6,14 @@ use crate::memory::virtual_memory::{copyin, init_proc_image,
                                     create_kstack, copyout};
 use crate::memory::frame_alloc::*;
 use crate::config::constants::{NUM_PROC, NUM_CPU};
-use crate::riscv::memory_types::{Addr, PageTable};
+use crate::riscv::memory_types::{Addr, PageTable, print_addr_space};
 use crate::riscv::supervisor_mode::{read_tp, intr_enabled,
                                     intr_off};
 use crate::riscv::context_switch::*;
 use crate::trap::syscall_proc::forkret;
 use super::loader::load;
-use super::init_test::elf_addr;
+use super::init_test::init_addr;
+use super::graphics_test::graphics_addr;
 
 /// Array of Pcb struct Mutexes for each process
 pub static PCB: [Mutex<Pcb>; NUM_PROC] = 
@@ -123,7 +124,7 @@ pub fn start_init_proc() {
   }
   
   // FIXME temporary for testing
-  let test_addr: Addr = elf_addr();
+  let test_addr: Addr = graphics_addr();
   
   if !load(&mut init, test_addr) {
     panic!("[proc]: failed to load program for init process.");

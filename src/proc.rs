@@ -6,6 +6,7 @@
 
 // FIXME temporary for testing
 mod init_test;
+mod graphics_test;
 
 // Spin lock Mutex
 pub mod spin;
