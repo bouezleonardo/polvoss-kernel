@@ -23,8 +23,8 @@ pub fn start() -> ! {
   if cpu_id() == 0 {
     clear();
     
-    print!("Hello world!\n\rWe are in 2026");
-      
+    println!("Hello, World!\n\rWe are in 2026");
+    
     // Frame allocation
     init_frame_alloc();
     
@@ -54,8 +54,9 @@ pub fn start() -> ! {
     
     // Start init process
     start_init_proc();
+  } else {
+    plic_enable();
   }
-  plic_enable();
   
   // Call scheduler
   scheduler();

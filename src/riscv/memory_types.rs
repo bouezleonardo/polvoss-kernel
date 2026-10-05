@@ -51,11 +51,11 @@ impl Addr {
   }
   /// Dereference raw pointer and write to address
   pub fn write<T>(&self, value: T) {
-    unsafe { (self.0 as *mut T).write(value) }
+    unsafe { (self.0 as *mut T).write_volatile(value) }
   }
   /// Dereference raw pointer and read from address
   pub fn read<T>(&self) -> T {
-    unsafe { (self.0 as *const T).read() }
+    unsafe { (self.0 as *const T).read_volatile() }
   }
   /// Write `value` to `len` bytes
   pub fn memset(&self, value: u8, len: usize) {

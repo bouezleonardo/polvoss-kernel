@@ -96,20 +96,17 @@ struct Writer;
 
 /// Write an ASCII character to the UART
 pub fn uart_putc(chr: u8) {
-  unsafe { (UART0 as *mut u8).write(chr) }
-}
-
-/// Write an ASCII string to the UART
-fn uart_write_string(s: &str) {
-  for byte in s.bytes() {
-    uart_putc(byte);
+  unsafe {
+    (UART0 as *mut u8).write_volatile(chr);
   }
 }
 
 // This is for use inside the uart module
 impl fmt::Write for Writer {
   fn write_str(&mut self, s: &str) -> fmt::Result {
-    uart_write_string(s);
+    for byte in s.as_bytes() {
+      uart_putc(*byte);
+    }
     Ok(())
   }
 }

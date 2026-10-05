@@ -125,7 +125,6 @@ pub fn start_init_proc() {
   
   // FIXME temporary for testing
   let test_addr: Addr = graphics_addr();
-  
   if !load(&mut init, test_addr) {
     panic!("[proc]: failed to load program for init process.");
   }
