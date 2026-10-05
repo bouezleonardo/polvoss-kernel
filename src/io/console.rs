@@ -123,12 +123,6 @@ fn process_ansi(buf: &mut [u8]) -> usize {
       // Check which sequence it is
       match buf[i+2] {
         b'H' =>  move_cursor(0, 0), // Cursor to home (0,0) 
-        b'2' => { // Clear screen
-          if buf[i+3] == b'J' {
-            clear();
-            remove = 4;
-          }
-        },
         b'N' => { // Canonical mode  
           *(CANONICAL.lock()) = true;
           MONITOR.lock().scroll(true);
@@ -137,62 +131,62 @@ fn process_ansi(buf: &mut [u8]) -> usize {
           *(CANONICAL.lock()) = false;
           MONITOR.lock().scroll(false);
         },
-        _ => { // Move cursor {row};{col}H
-          let mut off: usize = i+2;
-          
-          // Maximum number size
-          let mut numsz: usize = 3;
-          
-          // {row} number
-          let mut row: usize = 0;
-          while numsz > 0 && 
-              b'0' <= buf[off] && buf[off] <= b'9' {
-            row = row*10 + (buf[off]-b'0') as usize;
+        _ => { // It begins with a number
+          // Clear screen 2J
+          if buf[i+2] == b'2' && 
+            buf[i+3] == b'J' {
+            clear();
+            remove = 4;
+          } else {
+            // Move cursor {row};{col}H
+            let mut off: usize = i+2;
+            
+            // Maximum number size
+            let mut numsz: usize = 3;
+            
+            // {row} number
+            let mut row: usize = 0;
+            while numsz > 0 && 
+                b'0' <= buf[off] && buf[off] <= b'9' {
+              row = row*10 + (buf[off]-b'0') as usize;
+              off += 1;
+              numsz -= 1;
+            }
+            
+            // Check if there was a number and
+            // the separator
+            if numsz == 3 || buf[off] != b';' {
+              return 0;
+            }
+            
+            // Remove \x1B[{row};
+            remove = 2 + (3-numsz) + 1;
+            
             off += 1;
-            numsz -= 1;
+            numsz = 3;
+            
+            // {col} number
+            let mut col: usize = 0;
+            while numsz > 0 &&
+                b'0' <= buf[off] && buf[off] <= b'9' {
+              col = col*10 + (buf[off]-b'0') as usize;
+              off += 1;
+              numsz -= 1;
+            }
+            
+            // Check if there was a number and
+            // the final character
+            if numsz == 3 || buf[off] != b'H' {
+              return 0;
+            }
+            
+            // Remove {col}H
+            remove += (3-numsz) + 1;
+
+            move_cursor(row, col);
           }
-          
-          // Check if there was a number and
-          // the separator
-          if numsz == 3 || buf[off] != b';' {
-            return 0;
-          }
-          
-          /*crate::print!("\n\rBUFF: ");
-          for j in 0..10 {
-            crate::print!("{} ", buf[i+j]);  
-          }
-          
-          loop{} */
-          
-          // Remove \x1B[{row};
-          remove = 2 + (3-numsz) + 1;
-          
-          off += 1;
-          numsz = 3;
-          
-          // {col} number
-          let mut col: usize = 0;
-          while numsz > 0 &&
-              b'0' <= buf[off] && buf[off] <= b'9' {
-            col = col*10 + (buf[off]-b'0') as usize;
-            off += 1;
-            numsz -= 1;
-          }
-          
-          // Check if there was a number and
-          // the final character
-          if numsz == 3 || buf[off] != b'H' {
-            return 0;
-          } 
-          
-          // Remove {col}H
-          remove += (3-numsz) + 1;
-          
-          move_cursor(row, col);  
         },
       }
-      
       // Remove code from output
       for j in 0..remove {
         buf[i+j] = 0;
@@ -241,7 +235,7 @@ console_write(usr_src: bool, src: Addr, len: usize)
      
      // Get a string slice from the buffer
      s = from_utf8(&buf).expect("[console]: console write failed.");
-     
+        
      // write string to the screen
      write_string(s);
      

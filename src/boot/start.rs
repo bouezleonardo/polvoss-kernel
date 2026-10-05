@@ -42,9 +42,6 @@ pub fn start() -> ! {
     // Console
     init_console();
     
-    // Start init process
-    start_init_proc();
-    
     for i in 1..100 {
       print!("({} x {} = {})", i, i, i*i);
     }
@@ -54,6 +51,9 @@ pub fn start() -> ! {
     }
     
     intr_on();
+    
+    // Start init process
+    start_init_proc();
   }
   plic_enable();
   
