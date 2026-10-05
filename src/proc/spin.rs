@@ -93,7 +93,7 @@ impl<T> Mutex<T> {
         spin_loop();
       }
       
-      self.locked.set(true);
+      self.locked.set(true)
     });
    
     MutexGuard { mutex: self }
@@ -107,7 +107,7 @@ impl<T> Drop for MutexGuard<'_, T> {
     if self.mutex.locked.get() {
       black_box({
         self.mutex.locked.set(false);
-        lock_stack_pop();
+        lock_stack_pop()
       });
     }
   }

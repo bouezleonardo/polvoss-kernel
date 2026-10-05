@@ -69,7 +69,7 @@ fn alloc_inode() -> Option<&'static Mutex<Inode>> {
 /// of the inode. When the count reaches 0, the inode
 /// struct is considered as free to allocate.
 pub fn free_inode(mut inode: MutexGuard<Inode>) {
-  if inode.open_count <= 0 {
+  if inode.open_count == 0 {
     panic!("[free_inode]: tried to free an unreferenced inode.");
   }
   inode.open_count -= 1;

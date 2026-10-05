@@ -15,9 +15,6 @@ use crate::riscv::memory_types::{Addr};
 use super::monitor::*;
 use super::uart::{init_uart};
 
-use crate::memory::virtual_memory::walkaddr;
-use crate::proc::processing::current_proc_unwrap;
-
 /// Number of columns of the terminal.
 const INPUT_BUF_SIZE: usize = 128;
 

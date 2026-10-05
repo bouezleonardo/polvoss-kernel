@@ -1,7 +1,4 @@
 //! FIXME this is temporary for testing
-
-use crate::memory::frame_alloc::kmalloc;
-use crate::config::constants::PAGE_SIZE;
 use crate::riscv::memory_types::Addr;
 
 pub fn init_addr() -> Addr {  

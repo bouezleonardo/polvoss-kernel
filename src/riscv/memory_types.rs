@@ -308,7 +308,7 @@ pub fn pa_to_va(pgt1: PageTable, pa: Addr) -> Option<Addr> {
       // Check if this pte stores the physical address
       if pa == pte0.get_addr() {
         // Indexes into the page table
-        let mut va: u64 = (i << 22 + j << 12) as u64;
+        let mut va: u64 = ((i << 22) + (j << 12)) as u64;
         // Offset
         va += pa.as_integer()&0x00000111;
         return Some(Addr::new(va as u64));

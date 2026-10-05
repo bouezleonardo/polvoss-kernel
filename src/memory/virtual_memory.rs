@@ -14,7 +14,6 @@ use crate::config::constants::{PAGE_SIZE, UART0, PLIC,
 use crate::proc::spin::*;
 use crate::proc::control_types::Pcb;
 use crate::trap::trap_types::Trapframe;
-use crate::fs::file::File;
 
 /// Kernel's page table address. Should be modified
 /// only when booting by CPU 0.

@@ -4,9 +4,8 @@ use super::spin::*;
 use crate::trap::trap_types::*;
 use crate::memory::virtual_memory::{copyin, init_proc_image,
                                     create_kstack, copyout};
-use crate::memory::frame_alloc::*;
 use crate::config::constants::{NUM_PROC, NUM_CPU};
-use crate::riscv::memory_types::{Addr, PageTable, print_addr_space};
+use crate::riscv::memory_types::Addr;
 use crate::riscv::supervisor_mode::{read_tp, intr_enabled,
                                     intr_off};
 use crate::riscv::context_switch::*;
@@ -389,6 +388,7 @@ pub fn print_proc_stat() {
         crate::print!("Waiting");
       } else if proc.state == ProcState::Zombie {
         crate::print!("Zombie");
+        crate::print!(", status: {}", proc.exit_status);
       }       
     }
   }

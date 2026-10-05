@@ -5,7 +5,6 @@
 //! To come back here, a process running on kernel
 //! mode needs to switch() to the CPU context.
 
-use crate::print;
 use crate::riscv::context_switch::*;
 use crate::riscv::supervisor_mode::{intr_off, intr_on};
 use crate::trap::trap_types::Context;

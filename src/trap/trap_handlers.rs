@@ -10,10 +10,8 @@ use crate::proc::processing::{cpu_id, current_proc,
                               terminated, yield_cpu};
 use crate::proc::control_types::*;
 use crate::proc::spin::*;
-use crate::proc::sync::*;
 use crate::memory::memory_layout::{USERVEC};
 use super::kernelvec::kernelvec;
-use super::uservec::uservec;
 use super::trap_codes::*;
 use super::trap_types::*;
 use super::syscall_handler::syscall;
@@ -73,7 +71,7 @@ pub extern "C" fn usertrap() -> usize {
     panic!("[trap_handlers]: usertrap interrupts enabled.");
   }
   // Check if the trap really came from U-mode
-  if read_sstatus() & SPP_U != SPP_U {
+  if read_sstatus() & SPP_S != SPP_U {
     panic!("[trap_handlers]: not from User mode.
     \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r sstatus: {}", 
     read_scause(), read_sepc(), read_stval(), read_sstatus());

@@ -67,11 +67,11 @@ static FILE: [Mutex<File>;NUM_FILE] =
 fn get_device(num: u16) -> Option<Device> {
   match num {
     CONSOLE => {
-      return Some(Device {
+      Some(Device {
         read: console_read, write: console_write,
-      });
+      })
     },
-    _ => return None,
+    _ => None,
   }
 }
 
@@ -92,7 +92,7 @@ fn alloc_file() -> Option<&'static Mutex<File>> {
 /// of the file. If the count reaches 0, the Inode or
 /// Pipe associated with this file is also freed.
 fn free_file(mut file: MutexGuard<File>) {
-  if file.open_count <= 0 {
+  if file.open_count == 0 {
     panic!("[free_file]: tried to free an unreferenced file.");
   }
   file.open_count -= 1;

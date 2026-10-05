@@ -7,7 +7,6 @@ use crate::riscv::memory_types::*;
 use crate::fs::elf::*;
 use crate::memory::virtual_memory::{grow_proc_image,
                                     walkaddr, copyout};
-use crate::config::constants::PAGE_SIZE;
 use crate::trap::trap_types::Trapframe;
 use super::control_types::Pcb;
 use super::spin::MutexGuard;

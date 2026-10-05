@@ -17,6 +17,7 @@ pub mod sync;
 // Control data structures
 pub mod control_types;
 
+// Processing control
 pub mod processing;
 
 // Process scheduler
