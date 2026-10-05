@@ -148,6 +148,20 @@ pub fn kfree(ptr: Addr) {
   write_bit(addr, 0);
 }
 
+/// Get the amount of used memory (in pages)
+pub fn used_memory_count() -> usize {
+  let mut count: usize = 0;
+  let bitmap: MutexGuard<[u8;BITMAP_SIZE]> = BITMAP.lock();
+  
+  for i in 0..BITMAP_SIZE {
+    for j in 0..8 {
+      let bit: u8 = bitmap[i] >> j & 1;
+      count += bit as usize;
+    }
+  }
+  count
+}
+
 /// Set the last freed or allocated frame
 /// to the first usable frame address
 pub fn init_frame_alloc() {

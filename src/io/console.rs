@@ -98,59 +98,108 @@ pub fn find_cursor() -> (usize, usize) {
 }
 
 /// Process ANSI escape codes before printing.
-/// FIXME: this is not complete
 /// # Arguments
 /// - `buf`: character buffer
 /// # Return
 /// Number of positions to go back to avoid cutting codes
-fn process_ansi(buf: &mut [u8]) -> usize {
-  // Code's first position
-  let mut pos: usize = 0;
-  let mut found: bool = false;
-  
+fn process_ansi(buf: &mut [u8]) -> usize {    
   // Find ESC character
   for i in 0..buf.len() {
     if buf[i] == b'\x1B' {
-      pos = i; // Save position
-      found = true;
+      // Check if the code is cut out
+      // Maximum size for a code is 10 chars
+      if i > buf.len()-10 {
+        return buf.len() - i;
+      }
+      
+      if buf[i+1] != b'['{
+        return 0;
+      }
+      
+      // Amount of bytes to remove from buf
+      // after processing
+      let mut remove: usize = 3;
+      
+      // Check which sequence it is
+      match buf[i+2] {
+        b'H' =>  move_cursor(0, 0), // Cursor to home (0,0) 
+        b'2' => { // Clear screen
+          if buf[i+3] == b'J' {
+            clear();
+            remove = 4;
+          }
+        },
+        b'N' => { // Canonical mode  
+          *(CANONICAL.lock()) = true;
+          MONITOR.lock().scroll(true);
+        },
+        b'R' => { // Raw mode
+          *(CANONICAL.lock()) = false;
+          MONITOR.lock().scroll(false);
+        },
+        _ => { // Move cursor {row};{col}H
+          let mut off: usize = i+2;
+          
+          // Maximum number size
+          let mut numsz: usize = 3;
+          
+          // {row} number
+          let mut row: usize = 0;
+          while numsz > 0 && 
+              b'0' <= buf[off] && buf[off] <= b'9' {
+            row = row*10 + (buf[off]-b'0') as usize;
+            off += 1;
+            numsz -= 1;
+          }
+          
+          // Check if there was a number and
+          // the separator
+          if numsz == 3 || buf[off] != b';' {
+            return 0;
+          }
+          
+          /*crate::print!("\n\rBUFF: ");
+          for j in 0..10 {
+            crate::print!("{} ", buf[i+j]);  
+          }
+          
+          loop{} */
+          
+          // Remove \x1B[{row};
+          remove = 2 + (3-numsz) + 1;
+          
+          off += 1;
+          numsz = 3;
+          
+          // {col} number
+          let mut col: usize = 0;
+          while numsz > 0 &&
+              b'0' <= buf[off] && buf[off] <= b'9' {
+            col = col*10 + (buf[off]-b'0') as usize;
+            off += 1;
+            numsz -= 1;
+          }
+          
+          // Check if there was a number and
+          // the final character
+          if numsz == 3 || buf[off] != b'H' {
+            return 0;
+          } 
+          
+          // Remove {col}H
+          remove += (3-numsz) + 1;
+          
+          move_cursor(row, col);  
+        },
+      }
+      
+      // Remove code from output
+      for j in 0..remove {
+        buf[i+j] = 0;
+      }
       break;
     }
   }
-  // If there is no ESC
-  if !found {
-    return 0;
-  }
-  
-  // Check if the code is cut out
-  if pos == buf.len()-1 || pos == buf.len()-2 {
-    return buf.len() - pos;
-  }
-  
-  // Check which sequence it is
-  if buf[pos+1] == b'['{
-    match buf[pos+2] {
-      b'H' => move_cursor(0, 0),
-      b'L' => clear(),
-      b'T' => {
-        // Switch mode (canonical/raw)
-        let mut mode: MutexGuard<bool> = CANONICAL.lock();
-        *mode = !(*mode);
-        let mut monitor: MutexGuard<Monitor> = MONITOR.lock();
-        monitor.scroll(*mode);
-      },
-      _ => found = false,
-    }
-  } else {
-    found = false;
-  }
-  
-  if found {
-    // Erase code
-    buf[pos] = 0;
-    buf[pos+1] = 0;
-    buf[pos+2] = 0;
-  }
-  
   0
 }
 

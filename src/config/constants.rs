@@ -17,7 +17,7 @@ pub const NUM_FILE: usize = 64;
 pub const KSTACK_SIZE: usize = 2;
 
 // Number of pages for a process' user stack
-pub const USTACK_SIZE: usize = 3;
+pub const USTACK_SIZE: usize = 2;
 
 /// Time for the timer interrupts (ms)
 pub const TICK_TIME: u64 = 10;
