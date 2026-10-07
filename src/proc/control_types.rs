@@ -141,25 +141,6 @@ impl Pcb {
     // Return -1 if unsuccessful
     usize::MAX
   }
-  
-  /// Remove a file from the process file table
-  pub fn 
-  remove_file(&mut self, fd: usize) 
-  -> Option<&'static Mutex<File>> {
-    // Check if the file descriptor is valid
-    if fd >= NUM_FILE {
-      panic!("[PCB]: file descriptor out of bounds.");
-    }
-    
-    let mut file: Option<&'static Mutex<File>>;
-    
-    if self.files[fd].is_some() {
-      file = self.files[fd];
-      self.files[fd] = None;
-      return file;
-    }
-    None
-  }
 }
 
 /// CPU control struct. noff and intena

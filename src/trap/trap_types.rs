@@ -91,10 +91,10 @@ pub struct Trapframe {
   
   pub kernel_handler: usize,
 }
-/*impl Trapframe {
+impl Trapframe {
   pub const fn new() -> Self {
     Self {
-        kernel_satp: 0, kernel_sp: 0, kernel_hartid: 0, kernel_trap: 0, epc: 0,
+        kernel_satp: 0, kernel_sp: 0, kernel_hartid: 0, kernel_handler: 0, epc: 0,
         ra: 0, sp: 0, gp: 0, tp: 0,
         t0: 0, t1: 0, t2: 0,
         s0: 0, s1: 0,
@@ -106,4 +106,4 @@ pub struct Trapframe {
         t3: 0, t4: 0, t5: 0, t6: 0,
     }
   }
-}*/
+}

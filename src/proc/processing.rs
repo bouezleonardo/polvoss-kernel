@@ -11,8 +11,6 @@ use crate::riscv::supervisor_mode::{read_tp, intr_enabled,
 use crate::riscv::context_switch::*;
 use crate::trap::syscall_proc::forkret;
 use super::loader::load;
-use super::init_test::init_addr;
-use super::graphics_test::graphics_addr;
 
 /// Array of Pcb struct Mutexes for each process
 pub static PCB: [Mutex<Pcb>; NUM_PROC] = 
@@ -122,9 +120,7 @@ pub fn start_init_proc() {
     panic!("[proc]: failed to create a kstack for init process.");
   }
   
-  // FIXME temporary for testing
-  let test_addr: Addr = graphics_addr();
-  if !load(&mut init, test_addr) {
+  if !load("/graphics", &mut init) {
     panic!("[proc]: failed to load program for init process.");
   }
   
@@ -240,15 +236,10 @@ pub fn call_scheduler(mut proc: MutexGuard<Pcb>) {
 /// Release the CPU to be used by
 /// another process.
 pub fn yield_cpu() {
-  let mut proc: MutexGuard<Pcb> =
-    current_proc_unwrap("proc").lock();
-  
-  crate::print!("\n\rPID {} yielded", proc.pid);
-  
+  let mut proc: MutexGuard<Pcb> = current_proc_unwrap("proc").lock();
   proc.state = ProcState::Ready;
   call_scheduler(proc);
 }
-
 
 /// Find the PCB of the process that has the PID.
 /// # Arguments

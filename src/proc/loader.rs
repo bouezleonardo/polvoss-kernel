@@ -10,18 +10,27 @@ use crate::memory::virtual_memory::{grow_proc_image,
 use crate::trap::trap_types::Trapframe;
 use super::control_types::Pcb;
 use super::spin::MutexGuard;
+use super::init_test::init_addr;
+use super::graphics_test::graphics_addr;
 
 /// Load segments from the ELF file into
 /// the pagetable memory. The pagetable must
 /// have been already initialized by init_proc_image()
 /// # Arguments
 /// - `proc`: pagetable
-/// - `file`: ELF file
+/// - `path`: path of the ELF file
 /// # Return
 /// `true` if successful, `false` otherwise
 pub fn 
-load(proc: &mut MutexGuard<Pcb>, file: Addr) 
+load(path: &str, proc: &mut MutexGuard<Pcb>) 
 -> bool {
+  // FIXME: temporary solution before FS is working
+  let opt: Option<Addr> = file_addr(path);
+  if opt.is_none() {
+    return false;
+  }
+  let file: Addr = opt.unwrap();
+  
   // Read ELF header
   let ehdr: Elf32_Ehdr = file.read::<Elf32_Ehdr>();
   
@@ -86,5 +95,15 @@ load(proc: &mut MutexGuard<Pcb>, file: Addr)
   proc.write_trapframe(tpf);
   
   true
+}
+
+/// FIXME: this is a temporary solution
+fn file_addr(path: &str) -> Option<Addr> {
+  if path == "/init" {
+    return Some(init_addr());
+  } else if path == "/graphics" {
+    return Some(graphics_addr());
+  }
+  None
 }
 

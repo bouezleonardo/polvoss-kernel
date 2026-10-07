@@ -88,27 +88,6 @@ fn alloc_file() -> Option<&'static Mutex<File>> {
   None
 }
 
-/// Free a file. This decrements the reference count
-/// of the file. If the count reaches 0, the Inode or
-/// Pipe associated with this file is also freed.
-fn free_file(mut file: MutexGuard<File>) {
-  if file.open_count == 0 {
-    panic!("[free_file]: tried to free an unreferenced file.");
-  }
-  file.open_count -= 1;
-  
-  // Free inode or pipe
-  if file.open_count == 0 {
-    if file.inode.is_some() {
-      free_inode(file.inode.unwrap().lock());
-    } else if file.pipe.is_some() {
-      free_pipe(file.pipe.unwrap().lock());
-    }
-    // Cleanup
-    *file = File::new();
-  }
-}
-
 /// Open a file for an inode.
 /// # Arguments
 /// - `path`: inode path in the file system
@@ -160,7 +139,7 @@ open_inode_file(path: &[u8], flags: u32)
     inode.itype != DIR &&
     inode.itype != DEV &&
     inode.itype != SLINK {
-    free_file(file);
+    close_file(file);
     return usize::MAX;
   }
   file.ftype = inode.itype;
@@ -172,7 +151,7 @@ open_inode_file(path: &[u8], flags: u32)
     file.dev = get_device(num);
     
     if file.dev.is_none() {
-      free_file(file);
+      close_file(file);
       return usize::MAX;
     }
   }
@@ -185,7 +164,7 @@ open_inode_file(path: &[u8], flags: u32)
   
   // If the add was unsuccessful
   if fd == usize::MAX {
-    free_file(file);
+    close_file(file);
   }
   
   fd
@@ -311,6 +290,23 @@ write_file(fd: usize, usr_src: bool, src: Addr, len: usize)
   bytes
 }
 
-pub fn close_file(fd: usize) -> bool {
-  true
+/// Close a file. This decrements the reference count
+/// of the file. If the count reaches 0, the Inode or
+/// Pipe associated with this file is also freed.
+pub fn close_file(mut file: MutexGuard<File>) {
+  if file.open_count == 0 {
+    panic!("[close_file]: tried to close an unreferenced file.");
+  }
+  file.open_count -= 1;
+  
+  // Free inode or pipe
+  if file.open_count == 0 {
+    if file.inode.is_some() {
+      free_inode(file.inode.unwrap().lock());
+    } else if file.pipe.is_some() {
+      free_pipe(file.pipe.unwrap().lock());
+    }
+    // Cleanup
+    *file = File::new();
+  }
 }

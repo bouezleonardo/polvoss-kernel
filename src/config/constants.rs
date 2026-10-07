@@ -2,8 +2,8 @@
 
 /******************|DEVICES|*********************/
 
-/// Console device number
-pub const CONSOLE: u16 = 1;
+/// Console device number (major + minor)
+pub const CONSOLE: u16 = (0<<8)+1;
 
 /*******************|SYSTEM|*********************/
 
@@ -12,6 +12,21 @@ pub const NUM_PROC: usize = 64;
 
 /// Maximum number of open files
 pub const NUM_FILE: usize = 64;
+
+/// Maximum name size for files
+pub const FILE_NAME_SIZE: usize = 16;
+
+/// Maximum path name (max: /name/name/name/name)
+pub const PATH_SIZE: usize = (FILE_NAME_SIZE+1)*4;
+
+/// Maximum individual argument size in bytes
+/// This refers to the command line arguments in argv
+pub const ARG_SIZE: usize = 128;
+
+/// Maximum number of arguments
+/// This refers to the command line arguments in argv
+/// All arguments must fit in a page
+pub const NUM_ARG: usize = 32;
 
 // Number of pages for a process' kernel stack
 pub const KSTACK_SIZE: usize = 2;
@@ -22,7 +37,7 @@ pub const USTACK_SIZE: usize = 2;
 /// Time for the timer interrupts (ms)
 pub const TICK_TIME: u64 = 10;
 
-/// Size of disk block
+/// Size of disk block in bytes
 pub const SECTOR_SIZE: usize = 512; 
 
 /******************|HARDWARE|********************/

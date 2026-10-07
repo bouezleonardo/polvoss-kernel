@@ -14,6 +14,7 @@ use crate::config::constants::{PAGE_SIZE, UART0, PLIC,
 use crate::proc::spin::*;
 use crate::proc::control_types::Pcb;
 use crate::trap::trap_types::Trapframe;
+use crate::fs::file::close_file;
 
 /// Kernel's page table address. Should be modified
 /// only when booting by CPU 0.
@@ -229,12 +230,8 @@ pub fn use_virtual_memory(){
 /// Physical address associated with the virtual address
 pub fn 
 walkaddr(mut pgt: PageTable, va: Addr) -> Option<Addr> {  
-  // Leaf PTE
-  let mut pte: PageTableEntry; 
   // Leaf PTE index inside the page table
-  let mut index: usize; 
-  // Return from walk function 
-  let mut opt: Option<(PageTable, usize)>;  
+  let mut index: usize;   
   
   // Check of va is within boundries
   if va.as_integer() > MAX_VIRT_ADDR as u64 {
@@ -243,14 +240,14 @@ walkaddr(mut pgt: PageTable, va: Addr) -> Option<Addr> {
   
   // Walk the page table until the leaf PTE for the
   // address is found 
-  opt = walk(pgt.clone(), va, false);
+  let opt: Option<(PageTable, usize)> = walk(pgt.clone(), va, false);
   if opt.is_none() {
     return None;
   }
   // Get the leaf page table and index of the PTE
   (pgt, index) = opt.unwrap();
   // Get the PTE from the page table
-  pte = pgt.read_pte(index);
+  let pte: PageTableEntry = pgt.read_pte(index);
     
   // Check if this PTE is valid
   if !pte.check_fields(PTE_V) {
@@ -274,13 +271,7 @@ walkaddr(mut pgt: PageTable, va: Addr) -> Option<Addr> {
 /// `true` if the copy is successful, `false` otherwise.
 pub fn 
 copyin(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize) 
--> bool {
-  let mut va: Addr; // Virt addr of the page where src is
-  let mut pa: Addr; // Physical addr that va maps
-  let mut opt: Option<Addr>; // Return of walkaddr
-  let mut bytes: usize; // Number of bytes to copy from a page
-  let mut offset: usize; // Offset within a page
-  
+-> bool {  
   // Enable supervisor mode access to user pages
   sum_on();
   
@@ -289,22 +280,25 @@ copyin(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize)
     // Get the address of the closest previous page because
     // the virtual addresses mapped on the pagetable must
     // be page aligned
-    va = prev_page(src.clone());
+    let va: Addr = prev_page(src.clone());
     
     // Get the physical address of the page that va maps
-    opt = walkaddr(pgt.clone(), va.clone());
+    let opt: Option<Addr> = walkaddr(pgt.clone(), va.clone());
     if opt.is_none() {
       return false;
     }
     // Physical address of the page
-    pa = opt.unwrap();
+    let pa: Addr = opt.unwrap();
     
     // Number of bytes that will be copied from this page
     // Bytes from src to the end of the page will be copied
     // Page: |*......*.....|
     //        va    src     end
-    offset = (src.as_integer() - va.as_integer()) as usize; 
-    bytes = PAGE_SIZE - offset;
+    
+    // Offset within a page
+    let offset: usize = (src.as_integer() - va.as_integer()) as usize;
+    // Number of bytes to copy from a page
+    let mut bytes: usize = PAGE_SIZE - offset;
     
     // Amount of bytes to be copied is bigger than len
     if bytes >= len {
@@ -336,12 +330,6 @@ copyin(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize)
 pub fn 
 copyout(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize) 
 -> bool {
-  let mut va: Addr; // Virt addr of the page where dst is
-  let mut pa: Addr = Addr::new(0); // Physical addr that va maps
-  let mut opt: Option<Addr>; // Return of walkaddr
-  let mut bytes: usize; // Number of bytes to copy from a page
-  let mut offset: usize; // Offset within a page
-  
   // Enable supervisor mode access to user pages
   sum_on();
 
@@ -350,23 +338,26 @@ copyout(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize)
     // Get the address of the closest previous page because
     // the virtual addresses mapped on the pagetable must
     // be page aligned
-    va = prev_page(dst.clone());
+    let va: Addr = prev_page(dst.clone());
     
     // Get the physical address of the page that va maps
-    opt = walkaddr(pgt.clone(), va.clone());
+    let opt: Option<Addr> = walkaddr(pgt.clone(), va.clone());
     if opt.is_none() {
       return false;
     }
     // Physical address of the page (va)
-    pa = opt.unwrap();
+    let mut pa: Addr = opt.unwrap();
     
     // Number of bytes that will be copied to this page
     // Bytes from dst to the end of the page will be written
     // Page: |*......*.....|
     //        va    dst     end
     // dst can be equal to va if it is already aligned
-    offset = (dst.as_integer() - va.as_integer()) as usize; 
-    bytes = PAGE_SIZE - offset;
+    
+    // Offset within a page
+    let offset: usize = (dst.as_integer() - va.as_integer()) as usize;
+    // Number of bytes to copy from a page
+    let mut bytes: usize = PAGE_SIZE - offset;
     
     // Amount of bytes to be copied is bigger than len
     if bytes >= len {
@@ -388,6 +379,81 @@ copyout(pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize)
   sum_off();
   
   true
+}
+
+/// Copy a null terminated string from a user source address into
+/// a destination address in the kernel.
+/// # Arguments
+/// - `pgt`: user pagetable 
+/// - `dst`: destination address (kernel)
+/// - `src`: source address  (user)
+/// - `len`: max number of bytes to copy
+/// # Return
+/// Size of the string (counting \0).
+pub fn 
+strcopyin (pgt: PageTable, mut dst: Addr, mut src: Addr, mut len: usize) 
+-> usize {
+  let mut size: usize = 0;  // String size (counting null char)
+  
+  // Enable supervisor mode access to user pages
+  sum_on();
+  
+  // Loops going through pages until 
+  while len > 0 {
+    // Get the address of the closest previous page because
+    // the virtual addresses mapped on the pagetable must
+    // be page aligned
+    let va: Addr = prev_page(src.clone());
+    
+    // Get the physical address of the page that va maps
+    let opt: Option<Addr> = walkaddr(pgt.clone(), va.clone());
+    if opt.is_none() {
+      return 0;
+    }
+    // Physical address of the page
+    let pa: Addr = opt.unwrap();
+    
+    // Number of bytes that will be copied from this page
+    // Bytes from src to the end of the page will be copied
+    // Page: |*......*.....|
+    //        va    src     end
+    
+    // Offset within a page
+    let offset: usize = (src.as_integer() - va.as_integer()) as usize;
+    // Number of bytes to copy from a page
+    let mut bytes: usize = PAGE_SIZE - offset;
+    
+    // Amount of bytes to be copied is bigger than len
+    if bytes >= len {
+      bytes = len;
+    }
+    
+    // Check check if the null char is present
+    let mut aux: Addr = pa.clone() + offset;
+    for j in 0..bytes {
+      if aux.read::<u8>() == b'\0' {
+        // Copy with \0
+        dst.copy::<u8>(pa + offset, j+1);
+        return size+j+1;
+      }
+      aux += 1;
+    }
+    
+    // Copy to the destination (in the kernel)
+    // dst is in the kernel, there is no need to translate
+    dst.copy::<u8>(pa + offset, bytes);
+    
+    size += bytes;
+    len -= bytes;
+    dst += bytes;
+    src = va + PAGE_SIZE; // Next page
+  }
+  // Disable supervisor mode access to user pages
+  sum_off();
+  
+  // Zero byte strings are considered invalid
+  // This happens when no \0 was found
+  0
 }
 
 /// Copy a process' memory image. That is, copy
@@ -428,11 +494,11 @@ pub fn copy_proc_image(
   dst.init_trapframe(pgt0.read_pte(i).get_addr());
   
   // Copy parent's open files
-  for j in 0..NUM_FILE {
-    if src.files[j].is_some() {
+  for fd in 0..NUM_FILE {
+    if src.files[fd].is_some() {
       // Increment the reference count
-      src.files[j].unwrap().lock().open_count += 1;
-      dst.files[j] = src.files[j];
+      src.files[fd].unwrap().lock().open_count += 1;
+      dst.files[fd] = src.files[fd];
     }
   }
   true
@@ -479,6 +545,7 @@ init_proc_image(proc: &mut MutexGuard<Pcb>)
   // Map the TRAPFRAME to the process trapframe
   va = Addr::new(TRAPFRAME as u64);
   pa = opt.clone().unwrap();
+  pa.memset(0, PAGE_SIZE); // Clear page
   if !map(pgt.clone(), va, pa, PAGE_SIZE, PTE_R|PTE_W) {
     free_addr_space(pgt);
     return false;
@@ -506,8 +573,8 @@ init_proc_image(proc: &mut MutexGuard<Pcb>)
   
   // Save the stack address in the trapframe
   let mut tpf: Trapframe = proc.trapframe();
-  tpf.sp = USTACK + PAGE_SIZE - 1; // Top of the stack
-  tpf.sp -= tpf.sp % 16; // Must be 16 byte aligned 
+  tpf.sp = USTACK + PAGE_SIZE; // Top of the stack
+  tpf.sp -= tpf.sp % 16;       // Must be 16 byte aligned 
   proc.write_trapframe(tpf);
   
   true
@@ -529,6 +596,14 @@ free_proc_image(proc: &mut MutexGuard<Pcb>) {
     // The trapframe is mapped in the page table,
     // so it's already freed
     proc.trapframe = None;
+    
+    // Close files
+    for fd in 0..NUM_FILE {
+      if proc.files[fd].is_some() {
+        close_file(proc.files[fd].unwrap().lock());
+        proc.files[fd] = None; 
+      }
+    }
   }
 }
 
