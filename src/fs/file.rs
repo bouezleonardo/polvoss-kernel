@@ -96,7 +96,7 @@ fn alloc_file() -> Option<&'static Mutex<File>> {
 /// The file descriptor if successful, -1 otherwise.
 /// usize::MAX converts to -1 in signed integer.
 pub fn 
-open_inode_file(path: &[u8], flags: u32) 
+open_inode_file(path: &str, flags: u32) 
 -> usize {
   // Check if the flags are valid
   if flags & O_RDONLY == 0 && 

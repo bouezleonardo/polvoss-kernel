@@ -90,6 +90,7 @@ validate_elf_header(hdr: Elf32_Ehdr)
      hdr.e_ident[EI_MAG1] != ELFMAG1 ||
      hdr.e_ident[EI_MAG2] != ELFMAG2 ||
      hdr.e_ident[EI_MAG3] != ELFMAG3 {
+    crate::print!("\n\rERROR! [elf]: invalid magic number.");
     return false;  
   }
   
@@ -98,11 +99,13 @@ validate_elf_header(hdr: Elf32_Ehdr)
      hdr.e_ident[EI_DATA]    != ELFDATA2LSB || 
      hdr.e_ident[EI_VERSION] != EV_CURRENT ||
      hdr.e_machine           != EM_RISCV {
+    crate::print!("\n\rERROR! [elf]: unsuported ELF.");
     return false;
   }
   
   // Check if the type is valid
   if hdr.e_type != ET_EXEC {
+    crate::print!("\n\rERROR! [elf]: ELF type is not EXEC.");
     return false;
   }
   

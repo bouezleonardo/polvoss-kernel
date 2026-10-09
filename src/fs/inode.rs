@@ -85,7 +85,7 @@ pub fn free_inode(mut inode: MutexGuard<Inode>) {
 /// loaded.
 /// FIXME: this is not ready yet, just testing the console
 pub fn 
-open_inode(path: &[u8]) 
+open_inode(path: &str) 
 -> Option<&'static Mutex<Inode>> {
   
   let inode: Option<&'static Mutex<Inode>> = 

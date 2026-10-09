@@ -110,7 +110,7 @@ pub extern "C" fn usertrap() -> usize {
       clock_intr(); // Handle clock
       
       // Call the scheduler
-      yield_cpu(); 
+      //yield_cpu(); 
     } else {
       proc = mutex.lock();
       panic!("[trap_handlers]: usertrap interrupt not handled.
@@ -195,7 +195,7 @@ pub extern "C" fn kerneltrap() {
       
       // If the CPU should be given to a process
       if current_proc().is_some() {
-        yield_cpu(); // Call the scheduler
+        //yield_cpu(); // Call the scheduler
       }
     } else {
       panic!("[trap_handlers]: kerneltrap interrupt not handled.

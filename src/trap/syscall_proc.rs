@@ -11,7 +11,7 @@ use crate::memory::virtual_memory::{copyout, copy_proc_image,
                                     shrink_proc_image};
 use crate::memory::frame_alloc::{kmalloc};
 use crate::proc::processing::{current_proc_unwrap,
-                              current_proc_child,
+                              find_child, find_state_child,
                               call_scheduler, alloc_pcb,
                               free_pcb, find_proc};
 use crate::proc::control_types::{Pcb, ProcState, SIGKILL};
@@ -29,7 +29,7 @@ static KILL_CVAR: Condvar = Condvar::new();
 
 /// Syncronize exit() and waitpid()
 static EXIT_CVAR: Condvar = Condvar::new();
-
+ 
 /*****************|AUXILIARY|******************/
 
 /// Exit the current process running on kernel 
@@ -38,8 +38,7 @@ static EXIT_CVAR: Condvar = Condvar::new();
 /// # Arguments
 /// - `proc`: process' PCB guard
 pub fn kexit(status: i32) -> ! {
-  let mutex: &'static Mutex<Pcb> = 
-  current_proc_unwrap("kexit");
+  let mutex: &'static Mutex<Pcb> = current_proc_unwrap("kexit");
   let mut proc: MutexGuard<Pcb> = mutex.lock();
   
   // Set the argument for status
@@ -101,9 +100,8 @@ pub fn forkret() -> ! {
 /// # Wrapper
 /// `void exit(int status)`
 pub fn sys_exit() -> ! {
-  let mutex: &'static Mutex<Pcb> = 
-  current_proc_unwrap("exit");
-  let mut proc: MutexGuard<Pcb> = mutex.lock();
+  let proc_mtx: &'static Mutex<Pcb> = current_proc_unwrap("exit");
+  let mut proc: MutexGuard<Pcb> = proc_mtx.lock();
   
   // Get status from trapframe argument
   proc.exit_status = proc.trapframe().a0 as i32;
@@ -164,61 +162,90 @@ pub fn sys_fork() -> usize {
 }
 
 /// Wait for a child process termination.
-// TODO: implement wait for any PID
 /// # Wrapper
 /// `pid_t waitpid(pid_t pid, int *status)`
 pub fn sys_waitpid() -> usize {
-  // Guard for child PCB
-  let mut guard: MutexGuard<Pcb>;
-  
-  // Option for the child process
-  let opt: Option<&'static Mutex<Pcb>>;
-  
   // Current process
-  let proc: &'static Mutex<Pcb> = 
-    current_proc_unwrap("waitpid");
+  let proc_mtx: &'static Mutex<Pcb> = current_proc_unwrap("waitpid");
   
   // Get arguments from Trapframe
-  let tpf: Trapframe = proc.lock().trapframe();
+  let tpf: Trapframe = proc_mtx.lock().trapframe();
   let pid: usize = tpf.a0;
   let stat: Addr = Addr::new(tpf.a1 as u64);
   
-  // Get the child process with this PID
-  opt = current_proc_child(pid);
-  
-  // Check if this process has a child with this PID
-  if opt.is_none() {
-    // Equivalent to -1 when casting
-    return usize::MAX;
-  }
-  
-  // Get child process
-  let child: &'static Mutex<Pcb> = opt.unwrap();
-  guard = child.lock();
-  
+  // Guard for current PCB
+  let mut proc: MutexGuard<Pcb>;
+  // Guard for child process
+  let mut child: MutexGuard<Pcb>;
   // Address of the child PCB's exit_status
-  let exit: Addr = Addr::to_addr(&guard.exit_status);
+  let exit: Addr;
   
-  // While child is not Zombie
-  while guard.state != ProcState::Zombie {
-    // Wait until a exit() notifies waiting processes
-    guard = EXIT_CVAR.wait(child, guard);
+  // Check if this is a specific PID or -1 to wait on any child
+  if pid as i32 == -1 {
+    return usize::MAX;
+    /*// Option for the child process
+    let mut opt: Option<&'static Mutex<Pcb>>;
+  
+    // Get a child process that is a zombie
+    opt = find_state_child(proc_mtx, ProcState::Zombie);
+    
+    // Get the current process guard to transfer the exit status to it
+    proc = proc_mtx.lock();
+    
+    // Wait while there is no zombie child
+    while opt.is_none() {
+      // The process waits on itself
+      proc = EXIT_CVAR.wait(proc_mtx, proc);
+      opt = find_state_child(proc_mtx, ProcState::Zombie);
+    }
+    
+    // Get child process
+    child = opt.unwrap().lock();
+    
+    // Get the exit value address
+    exit = Addr::to_addr(&child.exit_status);*/
+  } else if pid as i32 > -1 {
+    // Get the child process with this PID
+    let opt: Option<&'static Mutex<Pcb>> = find_child(proc_mtx, pid);
+    
+    // Check if this process has a child with this PID
+    if opt.is_none() {
+      // Equivalent to -1 when casting
+      return usize::MAX;
+    }
+    
+    // Get child process
+    let child_mtx: &'static Mutex<Pcb> = opt.unwrap();
+    child = child_mtx.lock();
+    
+    exit = Addr::to_addr(&child.exit_status);
+    
+    // While child is not Zombie
+    while child.state != ProcState::Zombie {
+      // Wait until a exit() notifies waiting processes
+      child = EXIT_CVAR.wait(child_mtx, child);
+    }
+    // Get the current process guard to transfer the exit status to it
+    proc = proc_mtx.lock();
+  } else {
+    // Invalid argument
+    return usize::MAX;
   }
   
   // Copy exit_status from child's PCB to the address
   // of the *status argument. Check if the stat address
   // is not 0 (NULL).
   if stat.as_integer() != 0 &&
-  !copyout(proc.lock().pagetable(), stat, exit, 4) {
+  !copyout(proc.pagetable(), stat, exit, 4) {
     // If the copy is unsuccessful
     return usize::MAX;
   }
   
   // Free child's kstack and PCB
-  if !free_kstack(&mut guard) {
+  if !free_kstack(&mut child) {
     panic!("[waitpid]: failed to free child's kstack.");
   }
-  free_pcb(guard);
+  free_pcb(child);
   
   pid
 }

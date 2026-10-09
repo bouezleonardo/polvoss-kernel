@@ -115,18 +115,23 @@ fn process_ansi(buf: &mut [u8]) -> usize {
       
       // Amount of bytes to remove from buf
       // after processing
-      let mut remove: usize = 3;
+      let mut remove: usize = 0;
       
       // Check which sequence it is
       match buf[i+2] {
-        b'H' =>  move_cursor(0, 0), // Cursor to home (0,0) 
+        b'H' => { // Cursor to home (0,0) 
+          move_cursor(0, 0);
+          remove = 3; 
+        }, 
         b'N' => { // Canonical mode  
           *(CANONICAL.lock()) = true;
           MONITOR.lock().scroll(true);
+          remove = 3;
         },
         b'R' => { // Raw mode
           *(CANONICAL.lock()) = false;
           MONITOR.lock().scroll(false);
+          remove = 3;
         },
         _ => { // It begins with a number
           // Clear screen 2J
@@ -235,6 +240,9 @@ console_write(usr_src: bool, src: Addr, len: usize)
         
      // write string to the screen
      write_string(s);
+     
+     // Clear buffer
+     buf = [0;32];
      
      i += copy_len - cut;
    }

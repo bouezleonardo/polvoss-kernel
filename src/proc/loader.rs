@@ -12,6 +12,8 @@ use super::control_types::Pcb;
 use super::spin::MutexGuard;
 use super::init_test::init_addr;
 use super::graphics_test::graphics_addr;
+use super::sh_test::sh_addr;
+use super::snake_test::snake_addr;
 
 /// Load segments from the ELF file into
 /// the pagetable memory. The pagetable must
@@ -32,7 +34,7 @@ load(path: &str, proc: &mut MutexGuard<Pcb>)
   let file: Addr = opt.unwrap();
   
   // Read ELF header
-  let ehdr: Elf32_Ehdr = file.read::<Elf32_Ehdr>();
+  let ehdr: Elf32_Ehdr = file.read::<Elf32_Ehdr>(); 
   
   if !validate_elf_header(ehdr) {
     return false;
@@ -51,7 +53,7 @@ load(path: &str, proc: &mut MutexGuard<Pcb>)
   // Walk through the program header table
   for i in 0..ph_num {
     phdr_addr = phdr_base.clone() + i*ph_size;  
-      
+    
     let phdr: Elf32_Phdr = 
     phdr_addr.read::<Elf32_Phdr>();
     
@@ -75,7 +77,7 @@ load(path: &str, proc: &mut MutexGuard<Pcb>)
       }
     }
     
-    let mut success: bool;
+    let mut success: bool = true;
     success = copyout(proc.pagetable(), 
                  Addr::new(phdr.p_vaddr as u64), 
                  seg_addr, 
@@ -93,8 +95,16 @@ load(path: &str, proc: &mut MutexGuard<Pcb>)
   tpf.epc = ehdr.e_entry as usize;
   
   proc.write_trapframe(tpf);
-  
+    
   true
+}
+
+/// Check if this path is able to be loaded
+pub fn load_check(path: &str) -> bool{
+  if file_addr(path).is_some() {
+    return true;
+  }
+  false
 }
 
 /// FIXME: this is a temporary solution
@@ -103,6 +113,10 @@ fn file_addr(path: &str) -> Option<Addr> {
     return Some(init_addr());
   } else if path == "/graphics" {
     return Some(graphics_addr());
+  } else if path == "/sh" {
+    return Some(sh_addr());
+  } else if path == "/snake" {
+    return Some(snake_addr());
   }
   None
 }

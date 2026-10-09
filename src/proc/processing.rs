@@ -120,7 +120,7 @@ pub fn start_init_proc() {
     panic!("[proc]: failed to create a kstack for init process.");
   }
   
-  if !load("/graphics", &mut init) {
+  if !load("/init", &mut init) {
     panic!("[proc]: failed to load program for init process.");
   }
   
@@ -270,19 +270,16 @@ pub fn find_proc(pid: usize)
   None
 }
 
-/// Get the PCB of a child of the current process that 
+/// Get the PCB of a child of some process that 
 /// has the specified PID.
 /// # Arguments
+/// - `proc`: parent process
 /// - `pid`: child process' PID
 /// # Return
 /// Option containing the child that has the PID, 
 /// None otherwise 
-pub fn current_proc_child(pid: usize) 
--> Option<&'static Mutex<Pcb>>{
-  // Current process
-  let proc: &'static Mutex<Pcb> = 
-  current_proc_unwrap("proc");
-  
+pub fn find_child(proc: &'static Mutex<Pcb>, pid: usize) 
+-> Option<&'static Mutex<Pcb>>{  
   // Look for a process with the spcified PID
   let opt: Option<&'static Mutex<Pcb>> = find_proc(pid);
   
@@ -302,6 +299,34 @@ pub fn current_proc_child(pid: usize)
     return opt;
   }
   
+  None
+}
+
+/// Get the PCB of a child of some process that 
+/// is in the specified state.
+/// # Arguments
+/// - `proc`: parent process
+/// # Return
+/// Option containing the child, None otherwise 
+pub fn find_state_child(proc: &'static Mutex<Pcb>, state: ProcState) 
+-> Option<&'static Mutex<Pcb>>{
+  // Search for the first zombie child
+  for i in 0..NUM_PROC {
+    // Avoid checking proc itself
+    if core::ptr::eq(proc, &PCB[i]) {
+      continue;
+    }
+    
+    let child: MutexGuard<Pcb> = PCB[i].lock();
+  
+    // Check if the child has a parent
+    if child.state == state && child.parent.is_some() {
+      // Check if proc is the child's parent
+      if core::ptr::eq(proc, child.parent.unwrap()) {
+        return Some(&PCB[i]);
+      }
+    }
+  }
   None
 }
 
