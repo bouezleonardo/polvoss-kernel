@@ -10,10 +10,11 @@ use crate::memory::virtual_memory::{grow_proc_image,
 use crate::trap::trap_types::Trapframe;
 use super::control_types::Pcb;
 use super::spin::MutexGuard;
-use super::init_test::init_addr;
-use super::graphics_test::graphics_addr;
-use super::sh_test::sh_addr;
-use super::snake_test::snake_addr;
+use crate::programs::init::init_addr;
+use crate::programs::graphics::graphics_addr;
+use crate::programs::sh::sh_addr;
+use crate::programs::snake::snake_addr;
+use crate::programs::syscall_tests::syscall_addr;
 
 /// Load segments from the ELF file into
 /// the pagetable memory. The pagetable must
@@ -117,6 +118,8 @@ fn file_addr(path: &str) -> Option<Addr> {
     return Some(sh_addr());
   } else if path == "/snake" {
     return Some(snake_addr());
+  } else if path == "/syscall_tests" {
+    return Some(syscall_addr());
   }
   None
 }

@@ -71,10 +71,20 @@ pub extern "C" fn usertrap() -> usize {
     panic!("[trap_handlers]: usertrap interrupts enabled.");
   }
   // Check if the trap really came from U-mode
-  if read_sstatus() & SPP_S != SPP_U {
-    panic!("[trap_handlers]: not from User mode.
-    \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r sstatus: {}", 
-    read_scause(), read_sepc(), read_stval(), read_sstatus());
+  if read_sstatus() & SPP_S == SPP_S {
+    if int == 0 {
+      panic!("[trap_handlers]: exception not from User mode.
+              \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r sstatus: {}
+              \n\r Desc: {}", 
+              read_scause(), read_sepc(), read_stval(), read_sstatus(),
+              desc_exception(code));
+    } else if int == 1 {
+      panic!("[trap_handlers]: interrupt not from User mode.
+              \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r sstatus: {}
+              \n\r Desc: {}", 
+              read_scause(), read_sepc(), read_stval(), read_sstatus(),
+              desc_interrupt(code));
+    }
   }
   
   // Check if the trap is an exception or interrupt

@@ -13,15 +13,16 @@ use crate::trap::syscall_proc::forkret;
 use super::loader::load;
 
 /// Array of Pcb struct Mutexes for each process
-pub static PCB: [Mutex<Pcb>; NUM_PROC] = 
-  [const{Mutex::new(Pcb::new())}; NUM_PROC];
+pub static PCB: [Mutex<Pcb>; NUM_PROC] = [const{Mutex::new(Pcb::new())}; NUM_PROC];
 
 /// Array of Cpu structs for each CPU
-static mut CPU: [Cpu; NUM_CPU] = 
-  [const{Cpu::new()}; NUM_CPU];
+static mut CPU: [Cpu; NUM_CPU] = [const{Cpu::new()}; NUM_CPU];
 
 /// Next Process ID available
 static NEXT_PID: Mutex<usize> = Mutex::new(1);
+
+/// Reference to init process in the PCB array
+static INIT: Mutex<&'static Mutex<Pcb>> = Mutex::new(&PCB[0]);
 
 /// Get the current CPU ID.
 /// Must be called with interrupts disabled
@@ -124,11 +125,45 @@ pub fn start_init_proc() {
     panic!("[proc]: failed to load program for init process.");
   }
   
+  // Save init process reference
+  *(INIT.lock()) = init_mtx;
+  
   // Prepare init kernel context to go to forkret
   // This emulates a return from sys_fork (fork syscall)
   init.ctx.ra = forkret as *const() as usize;
   
   init.state = ProcState::Ready;
+}
+
+/// Reparent a process' children to init.
+/// # Arguments
+/// - `proc`: process whose children will be reparented.
+pub fn reparent(proc: &'static Mutex<Pcb>) {
+  // Search for the first zombie child
+  for i in 0..NUM_PROC {
+    // Avoid checking proc itself
+    if core::ptr::eq(proc, &PCB[i]) {
+      continue;
+    }
+    
+    let mut child: MutexGuard<Pcb> = PCB[i].lock();
+    
+    // Check if the child has a parent
+    if child.parent.is_some() {
+      // Check if proc is the child's parent
+      if core::ptr::eq(proc, child.parent.unwrap()) {
+        // Set the child parent to INIT reference
+        child.parent = Some(*(INIT.lock()));
+      }
+    }
+  }
+}
+
+/// Check if a process is init
+/// # Arguments
+/// - `proc`: process to be checked.
+pub fn is_init(proc: &'static Mutex<Pcb>) -> bool {
+  core::ptr::eq(proc, *(INIT.lock()))
 }
 
 /// Copy bytes to a kernel destination from a source address
@@ -242,6 +277,8 @@ pub fn yield_cpu() {
 }
 
 /// Find the PCB of the process that has the PID.
+/// This will generate a deadlock if this context
+/// already holds a process lock.
 /// # Arguments
 /// - `pid`: process' PID
 /// # Return
@@ -318,7 +355,7 @@ pub fn find_state_child(proc: &'static Mutex<Pcb>, state: ProcState)
     }
     
     let child: MutexGuard<Pcb> = PCB[i].lock();
-  
+    
     // Check if the child has a parent
     if child.state == state && child.parent.is_some() {
       // Check if proc is the child's parent

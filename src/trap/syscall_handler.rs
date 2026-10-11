@@ -48,6 +48,8 @@ pub fn syscall(){
   
   drop(proc); // Unlock proc Mutex
   
+  let mut test: bool = false;
+  
   // Call the system call function
   match tpf.a7 {
     SYS_EXIT    => sys_exit(),        // OK
@@ -55,16 +57,16 @@ pub fn syscall(){
     SYS_READ    => ret = sys_read(),  // OK
     SYS_WRITE   => ret = sys_write(), // OK
     SYS_OPEN    => ret = sys_open(),  // INCOMPLETE
-    SYS_CLOSE   => ret = sys_close(), 
-    SYS_WAITPID => ret = sys_waitpid(), // INCOMPLETE
-    SYS_EXECV   => ret = sys_execv(),
+    SYS_CLOSE   => ret = sys_close(), // OK
+    SYS_WAITPID => ret = sys_waitpid(), // OK
+    SYS_EXECV   => ret = sys_execv(),   // ARGS NOT WORKING
     //SYS_PIPE    => ret = sys_pipe(),
     //SYS_DUP     => ret = sys_dup(),
-    SYS_KILL    => ret = sys_kill(),
-    SYS_PAUSE   => ret = sys_pause(),
-    SYS_GETPID  => ret = sys_getpid(),
-    SYS_SLEEP   => ret = sys_sleep(), // OK
-    SYS_UPTIME  => ret = sys_uptime(),
+    SYS_KILL    => ret = sys_kill(),   // OK
+    SYS_PAUSE   => ret = sys_pause(),  // OK
+    SYS_GETPID  => ret = sys_getpid(), // OK
+    SYS_SLEEP   => ret = sys_sleep(),  // OK
+    SYS_UPTIME  => ret = sys_uptime(), // OK
     SYS_SBRK    => ret = sys_sbrk(),
     _ => print!("\n\rUnknown system call by PID {}.", pid),
   }
@@ -72,6 +74,6 @@ pub fn syscall(){
   // Place return in the process trapframe
   proc = mutex.lock();
   tpf = proc.trapframe();
-  tpf.a0 = ret;
+  tpf.a0 = ret; 
   proc.write_trapframe(tpf);
 }

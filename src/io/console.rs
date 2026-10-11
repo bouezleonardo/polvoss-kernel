@@ -9,7 +9,7 @@ use core::fmt;
 use core::str::from_utf8;
 use crate::proc::spin::{Mutex, MutexGuard};
 use crate::proc::processing::{either_copyin, print_proc_stat,
-                              either_copyout};
+                              either_copyout, current_proc};
 use crate::proc::sync::*;
 use crate::riscv::memory_types::{Addr};
 use super::monitor::*;
@@ -210,45 +210,53 @@ fn process_ansi(buf: &mut [u8]) -> usize {
 pub fn 
 console_write(usr_src: bool, src: Addr, len: usize) 
 -> usize {
-   // Buffer to put the data while it is being transfered
-   // from the memory
-   let mut buf: [u8;32] = [0;32];
-   let mut copy_len: usize = buf.len(); // Size of the next batch to be copied
-   let mut cut: usize; // Avoid cutting ansii codes between two batches
-   let mut s: &str; // String slice to be printed
-   let mut i: usize = 0; // Counter
+  use core::str::{Utf8Error, from_utf8};
+  
+  // Buffer to put the data while it is being transfered
+  // from the memory
+  let mut buf: [u8;32] = [0;32];
+  let mut copy_len: usize = buf.len(); // Size of the next batch to be copied
+  let mut i: usize = 0; // Counter
+
+  while i < len {
+    // Amount of bytes to be copied is bigger than len
+    if copy_len > len - i {
+     copy_len = len - i;
+    }
+    // either_copyin copies data from either the kernel's
+    // address space or from some user's space. Break if it
+    // fails
+    if !either_copyin(Addr::to_addr(&buf), usr_src, src.clone() + i, copy_len) {
+      return i; // Amount of bytes written to this point
+    }
+    copy_len = buf.len();
+
+    // Process escape codes. There is a chance that a code
+    // gets cut out, so it should not advance past it
+    let cut: usize = process_ansi(&mut buf);
+
+    // Get a string slice from the buffer
+    let opt: Result<&str, Utf8Error> = from_utf8(&buf);
+
+    // Check if was a valid UTF8 string in buf
+    if !opt.is_ok() {
+    continue;
+    }
+
+    // String slice to be printed
+    let s: &str = opt.unwrap(); 
+
+    // write string to the screen
+    write_string(s);
    
-   while i < len {
-     // Amount of bytes to be copied is bigger than len
-     if copy_len > len - i {
-       copy_len = len - i;
-     }
-     // either_copyin copies data from either the kernel's
-     // address space or from some user's space. Break if it
-     // fails
-     if !either_copyin(Addr::to_addr(&buf), usr_src, src.clone() + i, copy_len) {
-        return i; // Amount of bytes written to this point
-     }
-     copy_len = buf.len();
-     
-     // Process escape codes. There is a chance that a code
-     // gets cut out, so it should not advance past it
-     cut = process_ansi(&mut buf);
-     
-     // Get a string slice from the buffer
-     s = from_utf8(&buf).expect("[console]: console write failed.");
-        
-     // write string to the screen
-     write_string(s);
-     
-     // Clear buffer
-     buf = [0;32];
-     
-     i += copy_len - cut;
-   }
+    // Clear buffer
+    buf = [0;32];
    
-   // Amount of bytes written
-   len
+    i += copy_len - cut;
+  }
+  
+  // Amount of bytes written
+  len
 }
 
 /// Userspace read() in the console comes here
@@ -357,11 +365,11 @@ pub fn console_intr(chr: u8) {
     let mut show_page: bool = true;
     
     match chr {
-      CTRL_Q => {
+      CTRL_Q => { // Scroll up
         page_up();
         show_page = false;
       },
-      CTRL_A => {
+      CTRL_A => { // Scroll down
         page_down();
         show_page = false;
       },

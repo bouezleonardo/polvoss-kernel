@@ -13,7 +13,7 @@ use crate::memory::frame_alloc::{kmalloc};
 use crate::proc::processing::{current_proc_unwrap,
                               find_child, find_state_child,
                               call_scheduler, alloc_pcb,
-                              free_pcb, find_proc};
+                              free_pcb, find_proc, reparent, is_init};
 use crate::proc::control_types::{Pcb, ProcState, SIGKILL};
 use crate::proc::spin::*;
 use crate::proc::sync::*;
@@ -101,14 +101,23 @@ pub fn forkret() -> ! {
 /// `void exit(int status)`
 pub fn sys_exit() -> ! {
   let proc_mtx: &'static Mutex<Pcb> = current_proc_unwrap("exit");
+  
+  //
+  if is_init(proc_mtx) {
+    panic!("[exit]: init process trying to exit.");
+  }
+  
   let mut proc: MutexGuard<Pcb> = proc_mtx.lock();
   
   // Get status from trapframe argument
   proc.exit_status = proc.trapframe().a0 as i32;
   proc.state = ProcState::Zombie;
   
-  // Free process' address space and Trapframe
+  // Free process' address space, Trapframe and files
   free_proc_image(&mut proc);
+  
+  // Reparent any child process to init
+  reparent(proc_mtx);
   
   // Notify all processes waiting
   EXIT_CVAR.notify_all();
@@ -170,7 +179,7 @@ pub fn sys_waitpid() -> usize {
   
   // Get arguments from Trapframe
   let tpf: Trapframe = proc_mtx.lock().trapframe();
-  let pid: usize = tpf.a0;
+  let mut pid: usize = tpf.a0;
   let stat: Addr = Addr::new(tpf.a1 as u64);
   
   // Guard for current PCB
@@ -182,10 +191,9 @@ pub fn sys_waitpid() -> usize {
   
   // Check if this is a specific PID or -1 to wait on any child
   if pid as i32 == -1 {
-    return usize::MAX;
-    /*// Option for the child process
+    // Option for the child process
     let mut opt: Option<&'static Mutex<Pcb>>;
-  
+    
     // Get a child process that is a zombie
     opt = find_state_child(proc_mtx, ProcState::Zombie);
     
@@ -195,7 +203,7 @@ pub fn sys_waitpid() -> usize {
     // Wait while there is no zombie child
     while opt.is_none() {
       // The process waits on itself
-      proc = EXIT_CVAR.wait(proc_mtx, proc);
+      proc = EXIT_CVAR.wait_self(proc_mtx, proc);
       opt = find_state_child(proc_mtx, ProcState::Zombie);
     }
     
@@ -203,7 +211,10 @@ pub fn sys_waitpid() -> usize {
     child = opt.unwrap().lock();
     
     // Get the exit value address
-    exit = Addr::to_addr(&child.exit_status);*/
+    exit = Addr::to_addr(&child.exit_status);
+    
+    // Save child pid
+    pid = child.pid;
   } else if pid as i32 > -1 {
     // Get the child process with this PID
     let opt: Option<&'static Mutex<Pcb>> = find_child(proc_mtx, pid);
@@ -255,11 +266,7 @@ pub fn sys_waitpid() -> usize {
 /// `int kill(pid_t pid, int sig)`
 pub fn sys_kill() -> usize {
   // Current process
-  let proc: &'static Mutex<Pcb> = 
-    current_proc_unwrap("kill");
-  
-  // Process that will receive the signal
-  let mut target: MutexGuard<Pcb>;
+  let proc: &'static Mutex<Pcb> = current_proc_unwrap("kill");
   
   // Get arguments from Trapframe
   let tpf: Trapframe = proc.lock().trapframe();
@@ -267,16 +274,14 @@ pub fn sys_kill() -> usize {
   let sig: i32 = tpf.a1 as i32;
   
   // Search for the process with the pid
-  let opt: Option<&'static Mutex<Pcb>> = 
-    find_proc(pid);
+  let target: Option<&'static Mutex<Pcb>> = find_proc(pid);
   
-  if opt.is_none() {
+  if target.is_none() {
     return usize::MAX;
   }
   
   // Place the signal in the target PCB
-  target = opt.unwrap().lock();
-  target.kill_signal = sig;
+  target.unwrap().lock().kill_signal = sig;
   
   // Notify all processes waiting on pause()
   KILL_CVAR.notify_all();
@@ -291,8 +296,7 @@ pub fn sys_pause() -> usize {
   // Guard for the PCB
   let mut guard: MutexGuard<Pcb>;
   // Process mutex
-  let proc: &'static Mutex<Pcb> = 
-    current_proc_unwrap("pause");
+  let proc: &'static Mutex<Pcb> = current_proc_unwrap("pause");
   
   // Wait while the kill_signal is the default value
   guard = proc.lock();

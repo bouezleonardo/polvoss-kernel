@@ -28,12 +28,12 @@ mod proc;   // Processing mechanisms
 mod trap;   // Trap handling
 mod fs;     // File system
 
+mod programs; // FIXME: This is for testing before the file system
+
 /// Panic function
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-  // Clear terminal
-  clear();
   // Print panic message
-  print!("\r\nPANIC!\n\r{}", info.message());
+  print!("\r\nKERNEL PANIC!\n\r{}", info.message());
   loop {}
 }
