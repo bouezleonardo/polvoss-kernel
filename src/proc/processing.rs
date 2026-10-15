@@ -367,6 +367,33 @@ pub fn find_state_child(proc: &'static Mutex<Pcb>, state: ProcState)
   None
 }
 
+/// Check if the process has children
+/// # Arguments
+/// - `proc`: parent process
+/// # Return
+/// `true` if process has children, `false` otherwise
+pub fn has_children(proc: &'static Mutex<Pcb>) 
+-> bool {
+  // Search for the first zombie child
+  for i in 0..NUM_PROC {
+    // Avoid checking proc itself
+    if core::ptr::eq(proc, &PCB[i]) {
+      continue;
+    }
+    
+    let child: MutexGuard<Pcb> = PCB[i].lock();
+    
+    // Check if the child has a parent
+    if child.parent.is_some() {
+      // Check if proc is the child's parent
+      if core::ptr::eq(proc, child.parent.unwrap()) {
+        return true;
+      }
+    }
+  }
+  false
+}
+
 /// Check if a process is terminated
 /// # Arguments
 /// - `proc`: process' PCB guard

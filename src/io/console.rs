@@ -34,7 +34,7 @@ struct InputBuffer {
 static CANONICAL: Mutex<bool> = Mutex::new(true);
 
 /// Monitor struct to print to the screen
-static MONITOR: Mutex<Monitor> = Mutex::new(Monitor::new(true));
+static MONITOR: Mutex<Monitor> = Mutex::new(Monitor::new(true, true));
 
 /// Input condition variable for processes waiting to read
 static INPUT_CVAR: Condvar = Condvar::new();
@@ -125,12 +125,14 @@ fn process_ansi(buf: &mut [u8]) -> usize {
         }, 
         b'N' => { // Canonical mode  
           *(CANONICAL.lock()) = true;
-          MONITOR.lock().scroll(true);
+          MONITOR.lock().auto_scroll(true);
+          MONITOR.lock().auto_carriage(true);
           remove = 3;
         },
         b'R' => { // Raw mode
           *(CANONICAL.lock()) = false;
-          MONITOR.lock().scroll(false);
+          MONITOR.lock().auto_scroll(false);
+          MONITOR.lock().auto_carriage(false);
           remove = 3;
         },
         _ => { // It begins with a number

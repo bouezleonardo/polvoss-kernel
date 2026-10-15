@@ -114,7 +114,7 @@ fn file_addr(path: &str) -> Option<Addr> {
     return Some(init_addr());
   } else if path == "/graphics" {
     return Some(graphics_addr());
-  } else if path == "/sh" {
+  } else if path == "/shell" {
     return Some(sh_addr());
   } else if path == "/snake" {
     return Some(snake_addr());

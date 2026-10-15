@@ -52,21 +52,21 @@ pub fn syscall(){
   
   // Call the system call function
   match tpf.a7 {
-    SYS_EXIT    => sys_exit(),        // OK
-    SYS_FORK    => ret = sys_fork(),  // OK
-    SYS_READ    => ret = sys_read(),  // OK
-    SYS_WRITE   => ret = sys_write(), // OK
-    SYS_OPEN    => ret = sys_open(),  // INCOMPLETE
-    SYS_CLOSE   => ret = sys_close(), // OK
+    SYS_EXIT    => sys_exit(),          // OK
+    SYS_FORK    => ret = sys_fork(),    // OK
+    SYS_READ    => ret = sys_read(),    // OK
+    SYS_WRITE   => ret = sys_write(),   // OK
+    SYS_OPEN    => ret = sys_open(),    // INCOMPLETE (FILE SYSTEM)
+    SYS_CLOSE   => ret = sys_close(),   // OK
     SYS_WAITPID => ret = sys_waitpid(), // OK
     SYS_EXECV   => ret = sys_execv(),   // ARGS NOT WORKING
     //SYS_PIPE    => ret = sys_pipe(),
-    //SYS_DUP     => ret = sys_dup(),
-    SYS_KILL    => ret = sys_kill(),   // OK
-    SYS_PAUSE   => ret = sys_pause(),  // OK
-    SYS_GETPID  => ret = sys_getpid(), // OK
-    SYS_SLEEP   => ret = sys_sleep(),  // OK
-    SYS_UPTIME  => ret = sys_uptime(), // OK
+    SYS_DUP     => ret = sys_dup(),     // OK
+    SYS_KILL    => ret = sys_kill(),    // OK
+    SYS_PAUSE   => ret = sys_pause(),   // OK
+    SYS_GETPID  => ret = sys_getpid(),  // OK
+    SYS_SLEEP   => ret = sys_sleep(),   // OK
+    SYS_UPTIME  => ret = sys_uptime(),  // OK
     SYS_SBRK    => ret = sys_sbrk(),
     _ => print!("\n\rUnknown system call by PID {}.", pid),
   }

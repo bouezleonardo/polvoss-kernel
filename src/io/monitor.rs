@@ -30,9 +30,10 @@ const LINES: usize = M_HEIGHT*10;
 /// lines of text in the screen to be scrolled
 pub struct Monitor {
   chars: [[u8; COLS]; LINES], // Circular buffer for the lines 
-  r_offset: usize, // Read offset.
-  w_offset: usize, // Write offset. 
-  scroll: bool,   // Enable scrolling
+  r_offset: usize, // Read offset
+  w_offset: usize, // Write offset
+  scroll: bool,   // Enable automatic scrolling
+  carriage: bool, // Enable automatic '\r' after '\n'
   row: usize,     // Cursor row on the screen
   col: usize,     // Cursor column on the screen
 }
@@ -58,20 +59,26 @@ pub fn write_at(chr: u8, row: usize, col: usize) {
 
 impl Monitor {
   /// Initialize a Monitor 
-  pub const fn new(scr: bool) -> Self {
+  pub const fn new(scr: bool, carr: bool) -> Self {
     Self {
       chars: [[b' ';COLS];LINES],
       r_offset: 0,  
       w_offset: 0, 
       scroll: scr,
+      carriage: carr,
       row: 0,
       col: 0,    
     }
   }
   
   // Change scroll mode
-  pub fn scroll(&mut self, scr:bool) {
+  pub fn auto_scroll(&mut self, scr:bool) {
     self.scroll = scr;
+  }
+  
+  // Change carriage return mode
+  pub fn auto_carriage(&mut self, carr:bool) {
+    self.carriage = carr;
   }
   
   /// Read from the chars buffer
@@ -193,7 +200,12 @@ impl Monitor {
       return false;
     }
     match chr {
-      b'\n' => self.line_feed(),
+      b'\n' => {
+        self.line_feed();
+        if self.carriage {
+          self.carriage_return();
+        }
+      },
       b'\r' => self.carriage_return(),
       b'\t' => self.tab(),
       _ => {

@@ -13,7 +13,7 @@ use crate::memory::frame_alloc::{kmalloc};
 use crate::proc::processing::{current_proc_unwrap,
                               find_child, find_state_child,
                               call_scheduler, alloc_pcb,
-                              free_pcb, find_proc, reparent, is_init};
+                              free_pcb, find_proc, reparent, is_init, has_children};
 use crate::proc::control_types::{Pcb, ProcState, SIGKILL};
 use crate::proc::spin::*;
 use crate::proc::sync::*;
@@ -102,7 +102,7 @@ pub fn forkret() -> ! {
 pub fn sys_exit() -> ! {
   let proc_mtx: &'static Mutex<Pcb> = current_proc_unwrap("exit");
   
-  //
+  // Check if process is init
   if is_init(proc_mtx) {
     panic!("[exit]: init process trying to exit.");
   }
@@ -191,6 +191,10 @@ pub fn sys_waitpid() -> usize {
   
   // Check if this is a specific PID or -1 to wait on any child
   if pid as i32 == -1 {
+    if !has_children(proc_mtx) {
+      return usize::MAX;
+    }
+  
     // Option for the child process
     let mut opt: Option<&'static Mutex<Pcb>>;
     

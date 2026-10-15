@@ -297,5 +297,21 @@ pub fn sys_pipe() -> usize {
 /// # Wrapper
 /// `int dup(int fd)`
 pub fn sys_dup() -> usize {
-  0
+  let mut proc: MutexGuard<Pcb> = current_proc_unwrap("dup").lock();
+  
+  let tpf: Trapframe = proc.trapframe();
+  let fd: usize = tpf.a0;
+  
+  // Check this file descriptor in the process file table
+  if fd >= NUM_FILE || proc.files[fd].is_none() {
+    return usize::MAX;
+  }
+  
+  let file: &'static Mutex<File> = proc.files[fd].unwrap();
+  
+  // Increment the open count
+  file.lock().open_count += 1;
+  
+  // Get a new file descriptor for the same file
+  proc.add_file(file)
 }
