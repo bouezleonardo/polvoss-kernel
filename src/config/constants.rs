@@ -29,10 +29,10 @@ pub const ARG_SIZE: usize = 128;
 pub const NUM_ARG: usize = 32;
 
 // Number of pages for a process' kernel stack
-pub const KSTACK_SIZE: usize = 2;
+pub const KSTACK_SIZE: usize = 3;
 
 // Number of pages for a process' user stack
-pub const USTACK_SIZE: usize = 2;
+pub const USTACK_SIZE: usize = 3;
 
 /// Time for the timer interrupts (ms)
 pub const TICK_TIME: u64 = 10;
@@ -49,7 +49,7 @@ pub const PAGE_SIZE: usize = 4096;
 pub const NUM_CPU: usize = 1;
 
 /// Size of main memory in bytes
-pub const RAM_SIZE: usize = 128 * 1024 * 1024;
+pub const RAM_SIZE: usize = 1024 * 1024;
 
 /// Amount of clock increments that correspond to 1 ms
 pub const MILISECOND: u64 = 10000;

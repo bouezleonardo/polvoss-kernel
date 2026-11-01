@@ -5,7 +5,7 @@
 //! layout such as the kernel's start and
 //! end addresses.
 
-use crate::config::constants::{RAM_SIZE, PAGE_SIZE};
+use crate::config::constants::{RAM_SIZE, PAGE_SIZE, USTACK_SIZE};
 use crate::riscv::memory_types::{MAX_VIRT_ADDR};
 use crate::trap::uservec::*;
 
@@ -35,6 +35,9 @@ pub const KSTACK: usize = USERVEC - PAGE_SIZE;
 
 /// Virtual address of a process' stack.
 pub const USTACK: usize = TRAPFRAME - PAGE_SIZE;
+
+/// Address of the stack guard page
+pub const STACK_GUARD: usize = USTACK-USTACK_SIZE*PAGE_SIZE;
 
 /// Address where the kernel starts (where entry is)
 pub fn skernel_addr() -> u64 {

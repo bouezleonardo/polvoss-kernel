@@ -112,9 +112,8 @@ pub fn kmalloc() -> Option<Addr> {
     // Return the free frame pointer
     if read_bit(addr) == 0 {
       *latest = addr;
-      write_bit(addr, 1);  
+      write_bit(addr, 1);
       return Some(Addr::new(addr));
-      break;
     }
     
     addr += PAGE_SIZE as u64;
@@ -134,21 +133,22 @@ pub fn kfree(ptr: Addr) {
   }
   
   if addr < first_addr() {
-    panic!("[kfree]: address less than lower bound. {:#x} {:#x}", addr, first_addr());
+    panic!("[kfree]: address less than lower bound. \n Lower: {:#x} \n Addr: {:#x}", 
+    first_addr(), addr);
   }
   
   if addr > last_addr() {
-    panic!("[kfree]: address bigger than upper bound.");
+    panic!("[kfree]: address bigger than upper bound. \n Last: {:#x} \n Addr: {:#x}", 
+    last_addr(), addr);
   }
   
   if read_bit(addr) == 0 {
     panic!("[kfree]: tried to free an unused frame.");
   }
-  
   write_bit(addr, 0);
 }
 
-/// Get the amount of used memory (in pages)
+/// Get the amount of used memory (in bytes)
 pub fn used_memory_count() -> usize {
   let mut count: usize = 0;
   let bitmap: MutexGuard<[u8;BITMAP_SIZE]> = BITMAP.lock();
@@ -159,7 +159,7 @@ pub fn used_memory_count() -> usize {
       count += bit as usize;
     }
   }
-  count
+  count*4096
 }
 
 /// Set the last freed or allocated frame
@@ -171,4 +171,11 @@ pub fn init_frame_alloc() {
   // First address after the end of the kernel that
   // is multiple of PAGE_SIZE.
   *latest = first_addr();
+  
+  // Mark the kernel memory region as used
+  let mut addr: u64 = skernel_addr();
+  while addr < *latest {
+    write_bit(addr, 1);
+    addr += PAGE_SIZE as u64;
+  }
 }

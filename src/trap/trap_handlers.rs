@@ -10,7 +10,8 @@ use crate::proc::processing::{cpu_id, current_proc,
                               terminated, yield_cpu};
 use crate::proc::control_types::*;
 use crate::proc::spin::*;
-use crate::memory::memory_layout::{USERVEC};
+use crate::memory::memory_layout::{USERVEC, STACK_GUARD};
+use crate::config::constants::{PAGE_SIZE};
 use super::kernelvec::kernelvec;
 use super::trap_codes::*;
 use super::trap_types::*;
@@ -55,8 +56,7 @@ pub extern "C" fn usertrap() -> usize {
   // Catch interrupt bit and code for the trap
   let (int, code): (usize, usize) = catch_cause();
   // Process mutex
-  let mutex: &'static Mutex<Pcb> = 
-  current_proc_unwrap("trap_handlers");
+  let mutex: &'static Mutex<Pcb> = current_proc_unwrap("trap_handlers");
   // Process guard
   let mut proc: MutexGuard<Pcb>;
   // Process trapframe
@@ -74,14 +74,14 @@ pub extern "C" fn usertrap() -> usize {
   if read_sstatus() & SPP_S == SPP_S {
     if int == 0 {
       panic!("[trap_handlers]: exception not from User mode.
-              \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r sstatus: {}
-              \n\r Desc: {}", 
+              \n scause: {}\n sepc: {:#x}\n stval: {}\n sstatus: {}
+              \n Desc: {}", 
               read_scause(), read_sepc(), read_stval(), read_sstatus(),
               desc_exception(code));
     } else if int == 1 {
       panic!("[trap_handlers]: interrupt not from User mode.
-              \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r sstatus: {}
-              \n\r Desc: {}", 
+              \n scause: {}\n sepc: {:#x}\n stval: {}\n sstatus: {}
+              \n Desc: {}", 
               read_scause(), read_sepc(), read_stval(), read_sstatus(),
               desc_interrupt(code));
     }
@@ -108,10 +108,18 @@ pub extern "C" fn usertrap() -> usize {
       
       syscall(); // Handle system call
     } else {
-      panic!("[trap_handlers]: usertrap exception not handled.
-      \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r PID: {}
-      \n\r Desc: {}", read_scause(), read_sepc(), read_stval(), 
-      proc.pid, desc_exception(code));
+      // Ensure canonical mode is enabled
+      crate::io::console::canonical_mode();
+      
+      crate::print!("\nUSER EXCEPTION!");
+      crate::print!("\n scause: {}\n sepc: {:#x}\n stval: {}\n PID: {}
+       \n Desc: {}", read_scause(), read_sepc(), read_stval(), proc.pid, 
+       desc_exception(code));
+      
+      drop(proc);
+      
+      // Kill process  
+      kexit(SIGKILL);
     }
   } else if int == 1 {
     if code == EXTERNAL_INT {
@@ -124,8 +132,8 @@ pub extern "C" fn usertrap() -> usize {
     } else {
       proc = mutex.lock();
       panic!("[trap_handlers]: usertrap interrupt not handled.
-      \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r PID: {}
-      \n\r Desc: {}", read_scause(), read_sepc(), read_stval(), 
+      \n scause: {}\n sepc: {:#x}\n stval: {}\n PID: {}
+      \n Desc: {}", read_scause(), read_sepc(), read_stval(), 
       proc.pid, desc_interrupt(code));
     }
   }
@@ -187,7 +195,7 @@ pub extern "C" fn kerneltrap() {
   // Check if the trap really came from S-mode
   if sstatus & SPP_S != SPP_S {
     panic!("[trap_handlers]: not from Supervisor mode.
-    \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r sstatus: {}", 
+    \n scause: {}\n sepc: {:#x}\n stval: {}\n sstatus: {}", 
     read_scause(), sepc, read_stval(), sstatus);
   }
   
@@ -195,7 +203,7 @@ pub extern "C" fn kerneltrap() {
   if int == 0 {
     // Panic if there is an exception in the kernel
     panic!("[trap_handlers]: kernel exception has occured.
-    \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r Desc: {}", 
+    \n scause: {}\n sepc: {:#x}\n stval: {}\n Desc: {}", 
     read_scause(), sepc, read_stval(), desc_exception(code));
   } else if int == 1 {
     if code == EXTERNAL_INT {
@@ -209,7 +217,7 @@ pub extern "C" fn kerneltrap() {
       }
     } else {
       panic!("[trap_handlers]: kerneltrap interrupt not handled.
-      \n\r scause: {}\n\r sepc: {:#x}\n\r stval: {}\n\r Desc: {}", 
+      \n scause: {}\n sepc: {:#x}\n stval: {}\n Desc: {}", 
       read_scause(), sepc, read_stval(), desc_interrupt(code));
     }
   }

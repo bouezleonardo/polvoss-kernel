@@ -15,6 +15,8 @@ use crate::programs::graphics::graphics_addr;
 use crate::programs::sh::sh_addr;
 use crate::programs::snake::snake_addr;
 use crate::programs::syscall_tests::syscall_addr;
+use crate::programs::fbomb::fbomb_addr;
+use crate::programs::stack_overflow::stack_addr;
 
 /// Load segments from the ELF file into
 /// the pagetable memory. The pagetable must
@@ -120,6 +122,10 @@ fn file_addr(path: &str) -> Option<Addr> {
     return Some(snake_addr());
   } else if path == "/syscall_tests" {
     return Some(syscall_addr());
+  } else if path == "/fbomb" {
+    return Some(fbomb_addr());
+  } else if path == "/stack_overflow" {
+    return Some(stack_addr());
   }
   None
 }

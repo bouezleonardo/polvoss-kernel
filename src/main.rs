@@ -16,7 +16,7 @@
 // look for the entry.rs file in the boot module.
 
 use core::panic::PanicInfo;
-use crate::io::console::{clear};
+use crate::io::console::{canonical_mode};
 
 // Kernel module definitions
 mod config;  // Configuration
@@ -33,6 +33,8 @@ mod programs; // FIXME: This is for testing before the file system
 /// Panic function
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
+  // Guarantee canonical mode is enable in the console
+  canonical_mode();
   // Print panic message
   print!("\r\nKERNEL PANIC!\n\r{}", info.message());
   loop {}

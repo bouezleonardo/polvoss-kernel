@@ -18,8 +18,8 @@ use crate::proc::control_types::{Pcb, ProcState, SIGKILL};
 use crate::proc::spin::*;
 use crate::proc::sync::*;
 use crate::riscv::memory_types::{Addr, PageTable, satp_format,
-                                 PTE_R, PTE_W};
-use crate::memory::memory_layout::{userret_addr, USTACK};
+                                 PTE_R, PTE_W, PTE_U};
+use crate::memory::memory_layout::{userret_addr, USTACK, STACK_GUARD};
 use super::clock::{TICKS, TICKS_CVAR};
 use super::trap_types::Trapframe;
 use super::trap_handlers::{prepare_return};
@@ -374,34 +374,31 @@ pub fn sys_uptime() -> usize {
 /// `void *sbrk(int increment)`
 pub fn sys_sbrk() -> usize {
   // Current process PCB
-  let mut proc: MutexGuard<Pcb> = 
-    current_proc_unwrap("sbrk").lock();
-  // Read argument
-  let tpf: Trapframe = proc.trapframe();
-  
-  let oldbrk: i64 = proc.brk.as_integer() as i64;
-  let newbrk: i64 = oldbrk + tpf.a0 as i64;
-  
-  const HEAP_LIMIT: i64 = 
-    (USTACK-(USTACK_SIZE+1)*PAGE_SIZE) as i64;
+  let mut proc: MutexGuard<Pcb> = current_proc_unwrap("sbrk").lock();
+  // Argument
+  let increment: i32 = proc.trapframe().a0 as i32;
+  // Current program break
+  let oldbrk: u64 = proc.brk.as_integer();
+  // New program break
+  let newbrk: u64 = (oldbrk as i64 + increment as i64) as u64;  
   
   // Check if the new break address touches
-  // the the stack
-  // Proc memory image: 
-  if newbrk > oldbrk && newbrk < HEAP_LIMIT {
-    grow_proc_image(&mut proc, 
-                    Addr::new(newbrk as u64), 
-                    PTE_R|PTE_W);
-                    
-    return oldbrk as usize;
+  // the the stack.
+  // Proc memory image:
+  // | Segments | Heap |-> ... | Guard | ... <- Stack | Trapframe | Uservec |
+  //                    ^ brk
+  if newbrk > oldbrk && newbrk < STACK_GUARD as u64 {
+    if !grow_proc_image(&mut proc, Addr::new(newbrk), PTE_U|PTE_R|PTE_W){
+      return usize::MAX;
+    }                
   } else if newbrk < oldbrk && newbrk > 0 {
-    shrink_proc_image(&mut proc, Addr::new(newbrk as u64));
-    
-    return oldbrk as usize;
-  } else if newbrk == oldbrk {
-    return oldbrk as usize;
+    if !shrink_proc_image(&mut proc, Addr::new(newbrk)) {
+      return usize::MAX;
+    }
+  } else if newbrk != oldbrk {
+    // -1 if the break was not successful
+    return usize::MAX;
   }
   
-  // -1 if the break was not successful
-  usize::MAX
+  oldbrk as usize
 }

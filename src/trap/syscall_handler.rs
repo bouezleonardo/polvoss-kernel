@@ -67,7 +67,7 @@ pub fn syscall(){
     SYS_GETPID  => ret = sys_getpid(),  // OK
     SYS_SLEEP   => ret = sys_sleep(),   // OK
     SYS_UPTIME  => ret = sys_uptime(),  // OK
-    SYS_SBRK    => ret = sys_sbrk(),
+    SYS_SBRK    => ret = sys_sbrk(),    // OK
     _ => print!("\n\rUnknown system call by PID {}.", pid),
   }
   

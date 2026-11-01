@@ -93,6 +93,20 @@ pub fn move_cursor(row: usize, col: usize) {
 pub fn find_cursor() -> (usize, usize) {
   MONITOR.lock().find_cursor()
 }
+/// Enable canonical mode
+pub fn canonical_mode() {
+  *(CANONICAL.lock()) = true;
+  let mut mon: MutexGuard<Monitor> = MONITOR.lock();
+  mon.auto_scroll(true);
+  mon.auto_carriage(true);
+}
+/// Enable raw mode
+pub fn raw_mode() {
+  *(CANONICAL.lock()) = false;
+  let mut mon: MutexGuard<Monitor> = MONITOR.lock();
+  mon.auto_scroll(false);
+  mon.auto_carriage(false);
+}
 
 /// Process ANSI escape codes before printing.
 /// # Arguments
@@ -124,15 +138,11 @@ fn process_ansi(buf: &mut [u8]) -> usize {
           remove = 3; 
         }, 
         b'N' => { // Canonical mode  
-          *(CANONICAL.lock()) = true;
-          MONITOR.lock().auto_scroll(true);
-          MONITOR.lock().auto_carriage(true);
+          canonical_mode();
           remove = 3;
         },
         b'R' => { // Raw mode
-          *(CANONICAL.lock()) = false;
-          MONITOR.lock().auto_scroll(false);
-          MONITOR.lock().auto_carriage(false);
+          raw_mode();
           remove = 3;
         },
         _ => { // It begins with a number
@@ -242,7 +252,7 @@ console_write(usr_src: bool, src: Addr, len: usize)
 
     // Check if was a valid UTF8 string in buf
     if !opt.is_ok() {
-    continue;
+      return usize::MAX;
     }
 
     // String slice to be printed

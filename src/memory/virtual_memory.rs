@@ -144,34 +144,6 @@ unmap(pgt: PageTable, mut va: Addr, num_pages: usize, free: bool)
   true
 }
 
-/// Remap a physical address to a new virtual address
-/// `va` must be page-aligned
-/// # Arguments
-/// - `pgt`: page table to search
-/// - `newva`: new virtual address
-/// - `pa`: physical address
-/// - `size`: size of the mapping
-/// - `perm`: PTE permissions
-/// # Return
-/// `true` if the remapping is successful, `false` otherwise
-fn 
-remap(pgt: PageTable, mut newva: Addr, mut pa: Addr, perm: u8) 
--> bool {
-  // Search the pagetable until oldva is found
-  let opt: Option<Addr> = pa_to_va(pgt.clone(), pa.clone());
-  if opt.is_none() {
-    return false;
-  }
-  
-  let oldva: Addr = opt.unwrap();
-  // Unmap the oldva and map the newva
-  if !unmap(pgt.clone(), oldva, 1, false) ||
-    !map(pgt, newva, pa, PAGE_SIZE, perm) {
-    return false;  
-  }
-  true
-}
-
 /// Call the `map` function with an easier interface
 fn kernel_map(pgt: PageTable, va: u64, pa: u64, size: usize, 
 perm: u8) {
@@ -184,8 +156,7 @@ perm: u8) {
 /// creating the kernel pagetable 
 pub fn init_virtual_memory() {
   // Allocate a frame for the root
-  let frame: Addr = kmalloc().expect("[virtual_memory]: unable to
-                            allocate kernel page table.");
+  let frame: Addr = kmalloc().expect("[virtual_memory]: unable to allocate kernel page table.");
   
   // Create the page table in the frame
   let pgt: PageTable = PageTable::new(frame);
@@ -568,13 +539,15 @@ init_proc_image(proc: &mut MutexGuard<Pcb>)
       return false;
     }
   }
+  
   // Init process page table
   proc.init_pagetable(pgt);
   
   // Save the stack address in the trapframe
   let mut tpf: Trapframe = proc.trapframe();
-  tpf.sp = USTACK + PAGE_SIZE; // Top of the stack
+  tpf.sp = USTACK + PAGE_SIZE - 1; // Top of the stack
   tpf.sp -= tpf.sp % 16;       // Must be 16 byte aligned 
+  
   proc.write_trapframe(tpf);
   
   true
@@ -624,10 +597,11 @@ shrink_proc_image(proc: &mut MutexGuard<Pcb>, newbrk: Addr)
     num_pages /= PAGE_SIZE;
     
     // Free pages
-    if !unmap(proc.pagetable(), newbrk_page, num_pages, true){
+    if !unmap(proc.pagetable(), newbrk_page.clone(), num_pages, true){
       return false;
     }
   }
+  
   proc.brk = newbrk;
   true
 }
