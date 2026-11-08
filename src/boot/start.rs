@@ -54,16 +54,43 @@ pub fn start() -> ! {
     intr_on();
     println!(" Done");
     
-    print!("\nHello, POLVOSS!");
-    print!("\nFree memory: {} kb", RAM_SIZE/1024);
-    print!("\nKernel used memory: {} kb", used_memory_count()/1024);
-    
     // Start init process
+    print!("Starting init process...");
     start_init_proc();
+    println!(" Done");
+    
+    // Welcome message
+    boot_msg();
   } else {
     plic_enable();
   }
   
   // Call scheduler
   scheduler();
+}
+
+fn boot_msg() {
+  clear();
+  
+  print!(":::::::::   ::::::::  :::    :::     :::  ::::::::   ::::::::   ::::::::  \n");
+  print!(":+:    :+: :+:    :+: :+:    :+:     :+: :+:    :+: :+:    :+: :+:    :+: \n");
+  print!("+:+    +:+ +:+    +:+ +:+    +:+     +:+ +:+    +:+ +:+        +:+        \n");
+  print!("+#++:++#+  +#+    +:+ +#+    +#+     +:+ +#+    +:+ +#++:++#++ +#++:++#++ \n");
+  print!("+#+        +#+    +#+ +#+     +#+   +#+  +#+    +#+        +#+        +#+ \n");
+  print!("#+#        #+#    #+# #+#      #+#+#+#   #+#    #+# #+#    #+# #+#    #+# \n");
+  print!("###         ########  ########## ###      ########   ########   ######## \n");
+  print!("\n");
+  print!("=========================================================================\n");
+  print!("            Privilegeless Open Learnable OS Simulator - v1.0.0\n");
+  print!("=========================================================================\n");
+  
+  print!("\n+=================|SYSTEM MEMORY|==================+");
+  print!("\n");
+  print!("|  Total memory:        {} KB", RAM_SIZE/1024);
+  print!("\n");
+  print!("|  Kernel memory used:  {} KB", used_memory_count()/1024);
+  print!("\n");
+  print!("|  Free memory:         {} KB", (RAM_SIZE-used_memory_count())/1024);
+  print!("\n");
+  print!("+==================================================+\n");
 }

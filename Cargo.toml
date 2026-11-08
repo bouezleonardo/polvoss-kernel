@@ -1,4 +1,4 @@
 [package]
 name = "polvoss_kernel"
-version = "26.6.1"
+version = "1.0.0"
 edition = "2024"
