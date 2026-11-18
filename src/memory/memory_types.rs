@@ -1,5 +1,3 @@
-// riscv/memory_types.rs
-
 //! Type definitions for memory management.
 //!
 //! The types defined in this module are intended to
@@ -10,7 +8,7 @@ use core::ops::{Add, AddAssign, Sub};
 use crate::config::constants::{PAGE_SIZE};
 use crate::memory::frame_alloc::{kfree, kmalloc};
 use crate::memory::memory_layout::{uservec_addr};
-use super::supervisor_mode::{write_satp, sfence_vma, SATP_SV32};
+use crate::riscv::supervisor_mode::{write_satp, sfence_vma, SATP_SV32};
 
 // These types are intended for use on the Sv32 virtual
 // memory scheme. Read section 12.3.1. of RISC-V privileged 

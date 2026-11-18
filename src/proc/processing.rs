@@ -1,16 +1,21 @@
+//! General functionality related to process and CPU control.
+//!
+//! This module contains general mechanisms for
+//! process and CPU control, like PCB and CPU arrays, functions for
+//! discovering which process is running on the current CPU, what is the
+//! state of the current CPU, allocate Process IDs etc.
 
 use super::control_types::*;
 use super::spin::*;
 use crate::trap::trap_types::*;
-use crate::memory::virtual_memory::{copyin, init_proc_image,
-                                    create_kstack, copyout};
-use crate::config::constants::{NUM_PROC, NUM_CPU};
-use crate::riscv::memory_types::Addr;
-use crate::riscv::supervisor_mode::{read_tp, intr_enabled,
-                                    intr_off};
-use crate::riscv::context_switch::*;
+use crate::memory::virtual_memory::{copyin, init_proc_image, create_kstack, copyout};
+use crate::config::constants::{NUM_PROC, NUM_CPU, RAM_SIZE};
+use crate::memory::memory_types::Addr;
+use crate::memory::frame_alloc::used_memory_count;
+use crate::riscv::supervisor_mode::{read_tp, intr_enabled, intr_off};
 use crate::trap::syscall_proc::forkret;
 use super::loader::load;
+use super::context_switch::*;
 
 /// Array of Pcb struct Mutexes for each process
 pub static PCB: [Mutex<Pcb>; NUM_PROC] = [const{Mutex::new(Pcb::new())}; NUM_PROC];
@@ -438,17 +443,20 @@ pub fn free_pcb(mut proc: MutexGuard<Pcb>) {
   *proc = Pcb::new();
 }
 
-/// Print all used Pcbs
-pub fn print_proc_stat() {
+/// Print all used Pcbs and memory usage
+pub fn print_stats() {
   // Current process
   let curr_proc: Option<&'static Mutex<Pcb>> = 
     current_proc();
   
-  crate::print!("\n\n\r-------|PROC STAT|--------");
+  crate::print!("\n+=================|SYSTEM STATS|===================+");
+  
+  crate::print!("\n|  Total memory:        {} KB\n", RAM_SIZE/1024);
+  crate::print!("|  Free memory:         {} KB", (RAM_SIZE-used_memory_count())/1024);
   
   if curr_proc.is_some() {
     let pid: usize = curr_proc.unwrap().lock().pid;
-    crate::print!("\n\rCurrent Process: PID: {}", pid);
+    crate::print!("\n|  Current Process: PID: {}", pid);
   }
   
   // Go through PCB array
@@ -456,7 +464,7 @@ pub fn print_proc_stat() {
     let proc: MutexGuard<Pcb> = PCB[i].lock();
     
     if proc.state != ProcState::Unused {
-      crate::print!("\n\rPCB: {}, PID: {}, ", i, proc.pid);
+      crate::print!("\n|  PCB: {}, PID: {}, ", i, proc.pid);
       
       if proc.state == ProcState::New {
         crate::print!("New");
@@ -469,8 +477,9 @@ pub fn print_proc_stat() {
       } else if proc.state == ProcState::Zombie {
         crate::print!("Zombie");
         crate::print!(", status: {}", proc.exit_status);
-      }       
+      }
+      crate::print!(" , mem: {} KB", proc.brk.as_integer()/1024);      
     }
   }
-  crate::print!("\n\r--------------------------\n\r");
+  crate::print!("\n+==================================================+\n");
 }

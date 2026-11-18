@@ -6,7 +6,7 @@
 
 use crate::config::constants::NUM_FILE;
 use crate::proc::spin::*;
-use crate::riscv::memory_types::Addr;
+use crate::memory::memory_types::Addr;
 
 /// The DiskInode is the representation
 /// of the inode data stored on the disk

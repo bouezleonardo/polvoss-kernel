@@ -9,9 +9,3 @@ pub mod machine_mode;
 
 // Supervisor mode inline assembly functions
 pub mod supervisor_mode;
-
-// Type definitions for memory management
-pub mod memory_types;
-
-// Context switch mechanism
-pub mod context_switch;

@@ -7,7 +7,7 @@ use crate::fs::file::*;
 use crate::proc::processing::current_proc_unwrap;
 use crate::proc::control_types::Pcb;
 use crate::proc::spin::*;
-use crate::riscv::memory_types::Addr;
+use crate::memory::memory_types::Addr;
 use crate::config::constants::{USTACK_SIZE, ARG_SIZE, PATH_SIZE, PAGE_SIZE, NUM_ARG, NUM_FILE};
 use crate::memory::virtual_memory::{shrink_proc_image, strcopyin, copyout};
 use crate::memory::memory_layout::USTACK;

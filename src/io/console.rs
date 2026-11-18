@@ -8,10 +8,9 @@
 use core::fmt;
 use core::str::from_utf8;
 use crate::proc::spin::{Mutex, MutexGuard};
-use crate::proc::processing::{either_copyin, print_proc_stat,
-                              either_copyout, current_proc};
+use crate::proc::processing::{either_copyin, print_stats, either_copyout, current_proc};
 use crate::proc::sync::*;
-use crate::riscv::memory_types::{Addr};
+use crate::memory::memory_types::{Addr};
 use super::monitor::*;
 use super::uart::{init_uart};
 
@@ -362,7 +361,7 @@ const CTRL_Q: u8 = ctrl(b'Q');
 const CTRL_A: u8 = ctrl(b'A');
 /// Kill line
 const CTRL_U: u8 = ctrl(b'U');
-/// Print process statistics
+/// Print process and memory statistics
 const CTRL_P: u8 = ctrl(b'P');
 
 /// Treat input comming from the uart_intr
@@ -390,8 +389,8 @@ pub fn console_intr(chr: u8) {
           input.e_offset -= backspace();
         }
       },
-      CTRL_P => { // Print process stats
-        print_proc_stat();
+      CTRL_P => { // Print process and memory stats
+        print_stats();
       },
       b'\x7F' => { // Delete
         if input.e_offset > input.w_offset {

@@ -24,3 +24,6 @@ mod round_robin;
 
 // Program loader
 pub mod loader;
+
+// Context switch mechanism
+mod context_switch;

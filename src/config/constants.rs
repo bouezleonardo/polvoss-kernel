@@ -29,7 +29,7 @@ pub const ARG_SIZE: usize = 128;
 pub const NUM_ARG: usize = 32;
 
 // Number of pages for a process' kernel stack
-pub const KSTACK_SIZE: usize = 3;
+pub const KSTACK_SIZE: usize = 2;
 
 // Number of pages for a process' user stack
 pub const USTACK_SIZE: usize = 3;

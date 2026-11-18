@@ -4,7 +4,7 @@
 //! processes to perform operations in
 //! devices, files on disk or pipes.
 
-use crate::riscv::memory_types::Addr;
+use crate::memory::memory_types::Addr;
 use crate::config::constants::NUM_FILE;
 use crate::io::console::{console_read, console_write};
 use crate::proc::processing::current_proc_unwrap;

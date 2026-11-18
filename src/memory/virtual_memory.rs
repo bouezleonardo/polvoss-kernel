@@ -4,7 +4,7 @@
 //! memory mechanisms via paging.
 
 use crate::riscv::supervisor_mode::{sum_on, sum_off};
-use crate::riscv::memory_types::*;
+use super::memory_types::*;
 use crate::memory::memory_layout::*;
 use super::frame_alloc::{kmalloc, kfree};
 use crate::config::constants::{PAGE_SIZE, UART0, PLIC,
@@ -660,22 +660,14 @@ create_kstack(proc: &mut MutexGuard<Pcb>)
   let mut count: MutexGuard<usize> = KSTACK_COUNT.lock();
   let mut pgt: PageTable; 
   let mut page: Option<Addr>;
+  
   // Kernel pagetable
   unsafe{
     pgt = PageTable::new(Addr::new(KERNEL_PGT));
   }
   
-  // Allocate the first kstack page
-  page = kmalloc();
-  if page.is_none() {
-    return false;
-  }
-  let mut sp: u64 = page.unwrap().as_integer() + PAGE_SIZE as u64 - 1;
-  sp -= sp % 16;
-  let kstack: Addr = Addr::new(sp);
-  
-  // Allocate the rest
-  for i in 1..KSTACK_SIZE {
+  // Allocate the kstack
+  for i in 0..KSTACK_SIZE {
     page = kmalloc();
     
     if page.is_none() {
@@ -683,15 +675,26 @@ create_kstack(proc: &mut MutexGuard<Pcb>)
     }
     
     // Base - (Offset inside stack + Other Stacks + Guard pages) * PAGE_SIZE
-    let va: usize = KSTACK - (i + *count*KSTACK_SIZE + *count)*PAGE_SIZE;
-    let newva: Addr = Addr::new(va as u64);
-    
-    map(pgt.clone(), newva, page.unwrap(), PAGE_SIZE, PTE_R|PTE_W);
+    let va: u64 = (KSTACK - (i + *count*KSTACK_SIZE + *count)*PAGE_SIZE) as u64;
+
+    // Map this to the allocated page
+    if !map(pgt.clone(), Addr::new(va), page.unwrap(), PAGE_SIZE, PTE_R|PTE_W) {
+      return false;
+    }
   }
+  
+  // Start stack pointer on the first page of the kstack
+  let mut sp: u64 = (KSTACK - (*count*KSTACK_SIZE + *count)*PAGE_SIZE) as u64;
+  // Go to the top of the kstack
+  sp += PAGE_SIZE as u64 - 1;
+  // Align with 16 bytes
+  sp -= sp % 16;
+  
+  // Increment the kstack counter
   *count += 1;
   
   // Top of the stack
-  proc.init_kstack(kstack);
+  proc.init_kstack(Addr::new(sp));
   // Set the kernel context sp
   proc.ctx.sp = proc.kstack().as_integer() as usize;
   
@@ -717,9 +720,14 @@ free_kstack(proc: &mut MutexGuard<Pcb>)
   unsafe{
     pgt = PageTable::new(Addr::new(KERNEL_PGT));
   }
-  // Unmap and free the kstack pages
-  let va: Addr = proc.kstack()-KSTACK_SIZE*PAGE_SIZE;
-  unmap(pgt.clone(), va, KSTACK_SIZE,true); 
+  
+  // Last page of kstack
+  let va: Addr = next_page(proc.kstack())-(KSTACK_SIZE)*PAGE_SIZE;
+  
+  // Free KSTACK_SIZE pages of the kstack
+  if !unmap(pgt.clone(), va, KSTACK_SIZE, true) {
+    return false;
+  }
   
   proc.kstack = None;
   true

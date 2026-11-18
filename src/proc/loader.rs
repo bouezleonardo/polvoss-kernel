@@ -3,7 +3,7 @@
 //! The program loader reads an ELF file and
 //! prepares it's process image to execute.
 
-use crate::riscv::memory_types::*;
+use crate::memory::memory_types::*;
 use crate::fs::elf::*;
 use crate::memory::virtual_memory::{grow_proc_image,
                                     walkaddr, copyout};
@@ -113,19 +113,19 @@ pub fn load_check(path: &str) -> bool{
 /// FIXME: this is a temporary solution
 fn file_addr(path: &str) -> Option<Addr> {
   if path == "/init" {
-    return Some(init_addr());
+    return Some(Addr::new(init_addr()));
   } else if path == "/graphics" {
-    return Some(graphics_addr());
+    return Some(Addr::new(graphics_addr()));
   } else if path == "/shell" {
-    return Some(sh_addr());
+    return Some(Addr::new(sh_addr()));
   } else if path == "/snake" {
-    return Some(snake_addr());
+    return Some(Addr::new(snake_addr()));
   } else if path == "/syscall_tests" {
-    return Some(syscall_addr());
+    return Some(Addr::new(syscall_addr()));
   } else if path == "/fbomb" {
-    return Some(fbomb_addr());
+    return Some(Addr::new(fbomb_addr()));
   } else if path == "/stack_overflow" {
-    return Some(stack_addr());
+    return Some(Addr::new(stack_addr()));
   }
   None
 }

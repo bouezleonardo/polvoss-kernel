@@ -17,7 +17,7 @@ use crate::proc::processing::{current_proc_unwrap,
 use crate::proc::control_types::{Pcb, ProcState, SIGKILL};
 use crate::proc::spin::*;
 use crate::proc::sync::*;
-use crate::riscv::memory_types::{Addr, PageTable, satp_format,
+use crate::memory::memory_types::{Addr, PageTable, satp_format,
                                  PTE_R, PTE_W, PTE_U};
 use crate::memory::memory_layout::{userret_addr, USTACK, STACK_GUARD};
 use super::clock::{TICKS, TICKS_CVAR};

@@ -4,7 +4,7 @@ use crate::config::constants::{RAM_SIZE,PAGE_SIZE};
 use super::memory_layout::{first_addr, last_addr,
                            skernel_addr};
 use crate::proc::spin::{Mutex, MutexGuard};
-use crate::riscv::memory_types::Addr;
+use super::memory_types::Addr;
 
 /// Size of the frame bitmap. RAM_SIZE is divided
 /// by PAGE_SIZE * 8 because the bits map the first 

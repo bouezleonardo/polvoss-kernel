@@ -10,7 +10,7 @@
 // Read the ELF spec. for detailed information.
 
 use crate::config::constants::{PAGE_SIZE};
-use crate::riscv::memory_types::{PTE_R, PTE_W, PTE_X};
+use crate::memory::memory_types::{PTE_R, PTE_W, PTE_X};
 
 /********************|TYPES|********************/
 

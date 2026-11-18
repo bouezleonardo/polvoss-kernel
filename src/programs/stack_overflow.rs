@@ -1,8 +1,6 @@
 //! FIXME this is temporary for testing
-use crate::riscv::memory_types::Addr;
-
-pub fn stack_addr() -> Addr {  
-  Addr::new(ELF_FILE.as_ptr() as u64)
+pub fn stack_addr() -> u64 {  
+  ELF_FILE.as_ptr() as u64
 }
 
 static ELF_FILE: &[u8] = &[

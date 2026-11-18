@@ -5,13 +5,13 @@
 //! To come back here, a process running on kernel
 //! mode needs to switch() to the CPU context.
 
-use crate::riscv::context_switch::*;
 use crate::riscv::supervisor_mode::{intr_off, intr_on};
 use crate::trap::trap_types::Context;
 use super::spin::*;
 use super::control_types::*;
 use super::processing::{cpu_context, set_current_proc};
 use super::round_robin::*;
+use super::context_switch::*;
 
 /// Scheduler loop
 pub fn scheduler() -> ! {

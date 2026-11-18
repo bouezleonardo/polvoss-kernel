@@ -11,3 +11,6 @@ pub mod memory_layout;
 
 // Virtual memory mechanisms
 pub mod virtual_memory;
+
+// Type definitions for memory management
+pub mod memory_types;

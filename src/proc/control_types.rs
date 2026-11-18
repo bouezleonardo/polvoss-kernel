@@ -4,7 +4,7 @@
 //! for controlling processes and cpu state.
 
 use super::spin::Mutex;
-use crate::riscv::memory_types::{Addr, PageTable};
+use crate::memory::memory_types::{Addr, PageTable};
 use crate::trap::trap_types::{Context, Trapframe};
 use crate::fs::file::File;
 use crate::config::constants::NUM_FILE;

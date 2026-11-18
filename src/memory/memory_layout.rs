@@ -6,7 +6,7 @@
 //! end addresses.
 
 use crate::config::constants::{RAM_SIZE, PAGE_SIZE, USTACK_SIZE};
-use crate::riscv::memory_types::{MAX_VIRT_ADDR};
+use super::memory_types::{MAX_VIRT_ADDR};
 use crate::trap::uservec::*;
 
 // These simbols come from linker.ld
@@ -24,7 +24,7 @@ unsafe extern "C" {
 /// changes from the process page table to the kernel page table.
 /// It is mapped in the same location in the kernel and users 
 /// address spaces
-pub const USERVEC: usize = MAX_VIRT_ADDR - PAGE_SIZE;
+pub const USERVEC: usize = MAX_VIRT_ADDR;
 
 /// Virtual address of trapframe. The trapframe is the region
 /// of memory where the user data is stored when performing a trap.
@@ -36,7 +36,7 @@ pub const KSTACK: usize = USERVEC - PAGE_SIZE;
 /// Virtual address of a process' stack.
 pub const USTACK: usize = TRAPFRAME - PAGE_SIZE;
 
-/// Address of the stack guard page
+/// Address of the user stack guard page
 pub const STACK_GUARD: usize = USTACK-USTACK_SIZE*PAGE_SIZE;
 
 /// Address where the kernel starts (where entry is)

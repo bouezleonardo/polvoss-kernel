@@ -5,7 +5,7 @@
 //! messages to each other using the file I/O
 //! interface (read and write).
 
-use crate::riscv::memory_types::Addr;
+use crate::memory::memory_types::Addr;
 use crate::proc::spin::*;
 
 /// Pipe struct.

@@ -4,7 +4,7 @@
 //! from kernel and userspace.
 
 use crate::riscv::supervisor_mode::*;
-use crate::riscv::memory_types::{Addr, satp_format};
+use crate::memory::memory_types::{Addr, satp_format};
 use crate::proc::processing::{cpu_id, current_proc,
                               current_proc_unwrap,
                               terminated, yield_cpu};
