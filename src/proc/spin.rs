@@ -15,11 +15,8 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use crate::riscv::supervisor_mode::{intr_on, intr_off, 
-                                    intr_enabled};
-use super::processing::{set_cpu_lock_count, 
-                        cpu_lock_count, cpu_intena, 
-                        set_cpu_intena};
+use crate::riscv::supervisor_mode::{intr_on, intr_off, intr_enabled};
+use super::processing::{set_cpu_lock_count, cpu_lock_count, cpu_intena, set_cpu_intena};
 use core::hint::black_box;
 
 /// Save state and disable interrupts before 

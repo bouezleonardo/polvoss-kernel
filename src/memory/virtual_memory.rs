@@ -192,13 +192,13 @@ pub fn use_virtual_memory(){
   }
 }
 
-/// Get the physical address mapped to a user
+/// Get the physical address of the page mapped to a user
 /// virtual address.
 /// # Arguments
 /// - `pgt`: user pagetable 
 /// - `va`: virtual address
 /// # Return
-/// Physical address associated with the virtual address
+/// Physical address of the page associated with the virtual address
 pub fn 
 walkaddr(mut pgt: PageTable, va: Addr) -> Option<Addr> {  
   // Leaf PTE index inside the page table
@@ -229,6 +229,28 @@ walkaddr(mut pgt: PageTable, va: Addr) -> Option<Addr> {
     return None;
   }
   Some(pte.get_addr())
+}
+
+/// Get the physical address of mapped to a user
+/// virtual address.
+/// # Arguments
+/// - `pgt`: user pagetable 
+/// - `va`: virtual address
+/// # Return
+/// Physical address associated with the virtual address
+pub fn 
+va_to_pa(mut pgt: PageTable, va: Addr) -> Option<Addr> {  
+  // Get the page from the pagetable
+  let page: Option<Addr> = walkaddr(pgt, va.clone());
+  
+  if page.is_none() {
+    return None;
+  }
+  
+  // Add the address offset (first 12 bits)
+  let pa: Addr = page.unwrap() + (va.as_integer() & 0xfff) as usize;
+  
+  Some(pa)
 }
 
 /// Copy bytes from a user source address into

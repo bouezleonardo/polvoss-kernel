@@ -8,10 +8,10 @@ pub const CONSOLE: u16 = (0<<8)+1;
 /*******************|SYSTEM|*********************/
 
 /// Maximum number of processes
-pub const NUM_PROC: usize = 64;
+pub const NUM_PROC: usize = 32;
 
 /// Maximum number of open files
-pub const NUM_FILE: usize = 64;
+pub const NUM_FILE: usize = 32;
 
 /// Maximum name size for files
 pub const FILE_NAME_SIZE: usize = 16;

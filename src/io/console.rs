@@ -331,10 +331,7 @@ console_read(usr_dst: bool, mut dst: Addr, len: usize)
       }
       
       // Copy from kernel to either user or kernel
-      if !either_copyout(dst.clone(), 
-                         usr_dst, 
-                         Addr::to_addr(&buf), 
-                         1) {
+      if !either_copyout(dst.clone(), usr_dst, Addr::to_addr(&buf), 1) {
         break;
       }
       bytes += 1;
@@ -342,11 +339,6 @@ console_read(usr_dst: bool, mut dst: Addr, len: usize)
     }
   }
   
-  // Null terminator
-  either_copyout(dst.clone(), 
-                 usr_dst, 
-                 Addr::to_addr(&[0;1]), 
-                 1);
   bytes
 }
 

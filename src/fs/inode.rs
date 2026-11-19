@@ -65,20 +65,6 @@ fn alloc_inode() -> Option<&'static Mutex<Inode>> {
   None
 }
 
-/// Free an inode. This decrements the reference count
-/// of the inode. When the count reaches 0, the inode
-/// struct is considered as free to allocate.
-pub fn free_inode(mut inode: MutexGuard<Inode>) {
-  if inode.open_count == 0 {
-    panic!("[free_inode]: tried to free an unreferenced inode.");
-  }
-  inode.open_count -= 1;
-  
-  if inode.open_count == 0 {
-    *inode = Inode::new();
-  }
-}
-
 /// Open an Inode. This reads the inode number
 /// to check if the inode already is loaded in the
 /// `INODE` array. If its not, then the inode is
@@ -88,8 +74,7 @@ pub fn
 open_inode(path: &str) 
 -> Option<&'static Mutex<Inode>> {
   
-  let inode: Option<&'static Mutex<Inode>> = 
-    alloc_inode();
+  let inode: Option<&'static Mutex<Inode>> = alloc_inode();
   
   if inode.is_none() {
     return None;
@@ -114,7 +99,7 @@ open_inode(path: &str)
 /// - `dst`: destination address
 /// - `len`: amount of bytes to read
 pub fn 
-read_inode(inode: MutexGuard<Inode>, 
+read_inode(inode_mtx: &'static Mutex<Inode>, 
   usr_dst: bool, 
   dst: Addr, 
   len: usize)
@@ -130,10 +115,24 @@ read_inode(inode: MutexGuard<Inode>,
 /// - `src`: source address
 /// - `len`: amount of bytes to read
 pub fn 
-write_inode(inode: MutexGuard<Inode>, 
+write_inode(inode: &'static Mutex<Inode>, 
   usr_src: bool, 
   src: Addr, 
   len: usize)
 -> usize {
   0
+}
+
+/// Free an inode. This decrements the reference count
+/// of the inode. When the count reaches 0, the inode
+/// struct is considered as free to allocate.
+pub fn close_inode(mut inode: MutexGuard<Inode>) {
+  if inode.open_count == 0 {
+    panic!("[free_inode]: tried to free an unreferenced inode.");
+  }
+  inode.open_count -= 1;
+  
+  if inode.open_count == 0 {
+    *inode = Inode::new();
+  }
 }

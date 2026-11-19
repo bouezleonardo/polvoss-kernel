@@ -23,7 +23,7 @@ pub const O_RDWR: u32     = 1 << 2; // Read-write
 const O_CREAT: u32    = 1 << 3; // Create
 
 // File types
-const ORD: u8     = 1;  // Ordinary file
+const ORD: u8     = 1; // Ordinary file
 const PIPE: u8    = 2; // Pipe
 const DIR: u8     = 3; // Directory
 const DEV: u8     = 4; // Device
@@ -60,8 +60,7 @@ impl File {
 }
 
 /// File array.
-static FILE: [Mutex<File>;NUM_FILE] = 
-  [const{Mutex::new(File::new())};NUM_FILE];
+static FILE: [Mutex<File>;NUM_FILE] = [const{Mutex::new(File::new())};NUM_FILE];
 
 /// Get a device given a device number.
 fn get_device(num: u16) -> Option<Device> {
@@ -77,6 +76,7 @@ fn get_device(num: u16) -> Option<Device> {
 
 /// Allocate a free File from the `FILE` array 
 fn alloc_file() -> Option<&'static Mutex<File>> {
+  // Search for an unreferenced File
   for i in 0..NUM_FILE {
     let mut file: MutexGuard<File> = FILE[i].lock();
     
@@ -107,8 +107,7 @@ open_inode_file(path: &str, flags: u32)
   }
   
   // Get the current process
-  let mut proc: MutexGuard<Pcb> = 
-    current_proc_unwrap("open_inode_file").lock();
+  let mut proc: MutexGuard<Pcb> = current_proc_unwrap("open_inode_file").lock();
   
   // Try to read the inode for this path
   let inode_opt: Option<&'static Mutex<Inode>>;
@@ -118,10 +117,10 @@ open_inode_file(path: &str, flags: u32)
     return usize::MAX;
   }
   
-  let file_opt: Option<&'static Mutex<File>> = 
-    alloc_file();
+  let file_opt: Option<&'static Mutex<File>> = alloc_file();
   
   if file_opt.is_none() {
+    close_inode(inode_opt.unwrap().lock());
     return usize::MAX;
   }
   
@@ -170,8 +169,68 @@ open_inode_file(path: &str, flags: u32)
   fd
 }
 
-pub fn open_pipe_file(flags: u32) -> bool {
-  true
+pub fn open_pipe_file(p0: Addr, p1: Addr) -> usize {
+  // Get the current process
+  let mut proc: MutexGuard<Pcb> = current_proc_unwrap("open_pipe_file").lock();
+  
+  // Allocate the read end of the pipe
+  let file_read_opt: Option<&'static Mutex<File>> = alloc_file();
+  
+  if file_read_opt.is_none() {
+    return usize::MAX;
+  }
+    
+  // Allocate the write end of the pipe
+  let file_write_opt: Option<&'static Mutex<File>> = alloc_file();
+  
+  if file_write_opt.is_none() {
+    close_file(file_read_opt.unwrap().lock());
+    return usize::MAX;
+  }
+  
+  // Lock the mutex for the write end
+  let mut file_write: MutexGuard<File> = file_write_opt.unwrap().lock();
+  // Lock the mutex for the read end
+  let mut file_read: MutexGuard<File> = file_read_opt.unwrap().lock();
+  
+  // Allocate a new pipe
+  let pipe_opt: Option<&'static Mutex<Pipe>> = open_pipe();
+  
+  if pipe_opt.is_none() {
+    close_file(file_read);
+    close_file(file_write);
+    return usize::MAX;
+  }
+  
+  // Set the pipe for the files
+  file_read.pipe = pipe_opt;
+  file_write.pipe = pipe_opt;
+  
+  // Set file types
+  file_read.ftype = PIPE;
+  file_write.ftype = PIPE;
+  
+  // Set file flags
+  file_read.flags = O_RDONLY;
+  file_write.flags = O_WRONLY;
+  
+  // Add files to the process table
+  let fd0: usize = proc.add_file(file_read_opt.unwrap()); // read
+  let fd1: usize = proc.add_file(file_write_opt.unwrap()); // write
+  
+  // If the add was unsuccessful
+  if fd0 == usize::MAX || fd1 == usize::MAX {
+    close_file(file_read);
+    close_file(file_write);
+    return usize::MAX;
+  }
+  
+  // Write the file descriptor to p
+  // Guarantee it will be 32 bits (integer size)
+  p0.write::<u32>(fd0 as u32);
+  p1.write::<u32>(fd1 as u32);
+  
+  0
 }
 
 pub fn 
@@ -183,16 +242,14 @@ read_file(fd: usize, usr_dst: bool, dst: Addr, len: usize)
   }
   
   // Get the current process
-  let mut proc: MutexGuard<Pcb> = 
-    current_proc_unwrap("read_file").lock();
+  let mut proc: MutexGuard<Pcb> = current_proc_unwrap("read_file").lock();
   
   if proc.files[fd].is_none() {
     return usize::MAX;
   }
   
   // Get the file
-  let mut file: MutexGuard<File> = 
-    proc.files[fd].unwrap().lock();
+  let mut file: MutexGuard<File> = proc.files[fd].unwrap().lock();
   
   // Don't need process anymore
   drop(proc);
@@ -209,16 +266,17 @@ read_file(fd: usize, usr_dst: bool, dst: Addr, len: usize)
   // Check file type and read accordingly
   match file.ftype {
     ORD|DIR|SLINK => {
-      if file.inode.is_some() { 
-        bytes = read_inode(file.inode.unwrap().lock(), 
-                           usr_dst,
-                           dst, 
-                           len);
+      if file.inode.is_some() {
+        let inode: &'static Mutex<Inode> = file.inode.unwrap();
+        drop(file);
+        bytes = read_inode(inode, usr_dst, dst, len);
       }
     },
-    PIPE => { 
+    PIPE => {
       if file.pipe.is_some() {
-        bytes = read_pipe(file.pipe.unwrap().lock(), dst, len);
+        let pipe: &'static Mutex<Pipe> = file.pipe.unwrap();
+        drop(file);
+        bytes = read_pipe(pipe, dst, len);
       }
     },
     DEV => {
@@ -269,15 +327,12 @@ write_file(fd: usize, usr_src: bool, src: Addr, len: usize)
   match file.ftype {
     ORD|DIR|SLINK => {
       if file.inode.is_some() {
-        bytes = write_inode(file.inode.unwrap().lock(), 
-                           usr_src,
-                           src, 
-                           len);
+        bytes = write_inode(file.inode.unwrap(), usr_src, src, len);
       }
     },
     PIPE => { 
       if file.pipe.is_some() {
-        bytes = write_pipe(file.pipe.unwrap().lock(), src, len);
+        bytes = write_pipe(file.pipe.unwrap(), src, len);
       }
     },
     DEV => {
@@ -297,16 +352,23 @@ pub fn close_file(mut file: MutexGuard<File>) {
   if file.open_count == 0 {
     panic!("[close_file]: tried to close an unreferenced file.");
   }
+  
   file.open_count -= 1;
   
-  // Free inode or pipe
-  if file.open_count == 0 {
-    if file.inode.is_some() {
-      free_inode(file.inode.unwrap().lock());
-    } else if file.pipe.is_some() {
-      free_pipe(file.pipe.unwrap().lock());
+  // Free pipe
+  if file.pipe.is_some() {
+    if file.flags == O_RDONLY {
+      close_read_pipe(file.pipe.unwrap().lock());
+    } else if file.flags == O_WRONLY {
+      close_write_pipe(file.pipe.unwrap().lock());
     }
-    // Cleanup
+  } else if file.inode.is_some() && file.open_count == 0 {
+    // Free inode only when open_count == 0
+    close_inode(file.inode.unwrap().lock());
+  }
+  
+  // Cleanup file
+  if file.open_count == 0 {
     *file = File::new();
   }
 }

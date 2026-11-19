@@ -14,7 +14,7 @@ use crate::memory::memory_layout::USTACK;
 use crate::proc::loader::{load, load_check};
 use core::str::{Utf8Error, from_utf8};
 use super::trap_types::Trapframe;
-use crate::memory::virtual_memory::walkaddr;
+use crate::memory::virtual_memory::{walkaddr, va_to_pa};
 
 /// Read n bytes from a file and put it into a
 /// a buffer.
@@ -289,7 +289,35 @@ pub fn sys_execv() -> usize {
 /// # Wrapper
 /// `int pipe(int p[2]);`
 pub fn sys_pipe() -> usize {
-  0
+  let mut proc: MutexGuard<Pcb> = current_proc_unwrap("pipe").lock();
+  
+  // Get virtual addresses of p[0] (read) and p[1] (write)
+  let tpf: Trapframe = proc.trapframe();
+  let vp0: Addr = Addr::new(tpf.a0 as u64); // p[0]
+  let vp1: Addr = vp0.clone() + 4; // p[1] = p + sizeof(int)
+  
+  // Get the physical addresses of p[0]
+  let mut opt: Option<Addr> = va_to_pa(proc.pagetable(), vp0);
+  
+  if opt.is_none() {
+    return usize::MAX;
+  }
+  
+  let p0: Addr = opt.unwrap();
+  
+  // Get the physical addresses of p[1]
+  opt = va_to_pa(proc.pagetable(), vp1);
+  
+  if opt.is_none() {
+    return usize::MAX;
+  }
+  
+  let p1: Addr = opt.unwrap();
+ 
+  // Unlock mutex
+  drop(proc);
+  
+  open_pipe_file(p0, p1)
 }
 
 /// Return a new file descriptor referring to 

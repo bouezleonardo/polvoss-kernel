@@ -6,3 +6,4 @@ pub mod snake;
 pub mod syscall_tests;
 pub mod fbomb;
 pub mod stack_overflow;
+pub mod pipes;

@@ -60,7 +60,7 @@ pub fn syscall(){
     SYS_CLOSE   => ret = sys_close(),   // OK
     SYS_WAITPID => ret = sys_waitpid(), // OK
     SYS_EXECV   => ret = sys_execv(),   // ARGS NOT WORKING
-    //SYS_PIPE    => ret = sys_pipe(),
+    SYS_PIPE    => ret = sys_pipe(),
     SYS_DUP     => ret = sys_dup(),     // OK
     SYS_KILL    => ret = sys_kill(),    // OK
     SYS_PAUSE   => ret = sys_pause(),   // OK

@@ -17,6 +17,7 @@ use crate::programs::snake::snake_addr;
 use crate::programs::syscall_tests::syscall_addr;
 use crate::programs::fbomb::fbomb_addr;
 use crate::programs::stack_overflow::stack_addr;
+use crate::programs::pipes::pipes_addr;
 
 /// Load segments from the ELF file into
 /// the pagetable memory. The pagetable must
@@ -126,6 +127,8 @@ fn file_addr(path: &str) -> Option<Addr> {
     return Some(Addr::new(fbomb_addr()));
   } else if path == "/stack_overflow" {
     return Some(Addr::new(stack_addr()));
+  } else if path == "/pipes" {
+    return Some(Addr::new(pipes_addr()));
   }
   None
 }
