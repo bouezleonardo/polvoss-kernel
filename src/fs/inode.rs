@@ -123,6 +123,11 @@ write_inode(inode: &'static Mutex<Inode>,
   0
 }
 
+// Increment the open_count of an inode
+pub fn dup_inode(mut inode: MutexGuard<Inode>) {
+  inode.open_count += 1;
+}
+
 /// Free an inode. This decrements the reference count
 /// of the inode. When the count reaches 0, the inode
 /// struct is considered as free to allocate.

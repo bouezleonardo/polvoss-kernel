@@ -337,8 +337,8 @@ pub fn sys_dup() -> usize {
   
   let file: &'static Mutex<File> = proc.files[fd].unwrap();
   
-  // Increment the open count
-  file.lock().open_count += 1;
+  // Increment the open count and update the pipe/inode
+  dup_file(file);
   
   // Get a new file descriptor for the same file
   proc.add_file(file)

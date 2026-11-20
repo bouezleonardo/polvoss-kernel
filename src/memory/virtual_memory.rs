@@ -14,7 +14,7 @@ use crate::config::constants::{PAGE_SIZE, UART0, PLIC,
 use crate::proc::spin::*;
 use crate::proc::control_types::Pcb;
 use crate::trap::trap_types::Trapframe;
-use crate::fs::file::close_file;
+use crate::fs::file::{close_file, dup_file};
 
 /// Kernel's page table address. Should be modified
 /// only when booting by CPU 0.
@@ -489,8 +489,10 @@ pub fn copy_proc_image(
   // Copy parent's open files
   for fd in 0..NUM_FILE {
     if src.files[fd].is_some() {
-      // Increment the reference count
-      src.files[fd].unwrap().lock().open_count += 1;
+      // Update the file's reference count
+      dup_file(src.files[fd].unwrap());
+      
+      // Duplicate the file
       dst.files[fd] = src.files[fd];
     }
   }

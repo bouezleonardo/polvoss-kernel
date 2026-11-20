@@ -17,8 +17,8 @@ use crate::memory::virtual_memory::{copyout, copyin};
 /// Each pipe is a circular buffer. A page is dinamically allocated and freed
 /// to avoid wasting too much memory.
 pub struct Pipe {
-  read_open: bool,   // If p[0] is open.
-  write_open: bool,  // If p[1] is open
+  read_open: usize,   // Amount of read ends open
+  write_open: usize,  // Amount of write ends open
   r_offset: usize,    // Read offset
   w_offset: usize,    // Write offset
   buf: Option<Addr>, // Page where data will be transfered
@@ -26,7 +26,7 @@ pub struct Pipe {
 impl Pipe {
   pub const fn new() -> Self {
     Self{
-      read_open: false, write_open: false, r_offset: 0, w_offset: 0, buf: None,
+      read_open: 0, write_open: 0, r_offset: 0, w_offset: 0, buf: None,
     }
   }
 }
@@ -43,7 +43,7 @@ pub fn open_pipe() -> Option<&'static Mutex<Pipe>> {
   for i in 0..NUM_FILE {
     let mut pipe: MutexGuard<Pipe> = PIPE[i].lock();
     
-    if !pipe.read_open && !pipe.write_open {
+    if pipe.read_open == 0 && pipe.write_open == 0 {
       // Allocate a page for the buffer
       let buf: Option<Addr> = kmalloc();
       
@@ -51,8 +51,8 @@ pub fn open_pipe() -> Option<&'static Mutex<Pipe>> {
         return None;
       }
       
-      pipe.read_open = true;
-      pipe.write_open = true;
+      pipe.read_open = 1;
+      pipe.write_open = 1;
       pipe.buf = buf;
       
       return Some(&PIPE[i]);
@@ -85,7 +85,7 @@ read_pipe(pipe_mtx: &'static Mutex<Pipe>, dst: Addr, len: usize)
     // If there is nothing more to read
     while pipe.r_offset >= pipe.w_offset {
       // Wait for more data if p[1] is still open
-      if pipe.write_open {
+      if pipe.write_open > 0 {
         pipe = PIPE_CVAR.wait(pipe_mtx, pipe);
       } else {
         return i;
@@ -97,10 +97,6 @@ read_pipe(pipe_mtx: &'static Mutex<Pipe>, dst: Addr, len: usize)
     }
     pipe.r_offset += 1;
   }
- 
-  // Null terminator
-  copyout(pgt.clone(), dst.clone()+len, Addr::to_addr(&[0;1]), 1);
-  crate::print!("OIAAAAAAAAAAAAAAAAAAAIII");
   
   let pa: Addr = crate::memory::virtual_memory::va_to_pa(pgt.clone(), dst.clone()).unwrap();
   
@@ -138,27 +134,37 @@ write_pipe(pipe_mtx: &'static Mutex<Pipe>, src: Addr, len: usize)
   len
 }
 
+/// Increment the pipe's read_count
+pub fn dup_read_pipe(mut pipe: MutexGuard<Pipe>) { 
+  pipe.read_open += 1;
+}
+
+/// Increment the pipe's write_count
+pub fn dup_write_pipe(mut pipe: MutexGuard<Pipe>) { 
+  pipe.write_open += 1;
+}
+
 /// Free the read end of a pipe
 pub fn close_read_pipe(mut pipe: MutexGuard<Pipe>) {
-  pipe.read_open = false;
+  pipe.read_open -= 1;
 
   // Free buffer page
-  if pipe.buf.is_some() {
+  if pipe.read_open == 0 && pipe.buf.is_some() {
     kfree(pipe.buf.clone().unwrap());
   }
   
   // Cleanup pipe
-  if !pipe.read_open && !pipe.write_open {
+  if pipe.read_open == 0 && pipe.write_open == 0 {
     *pipe = Pipe::new();
   }
 }
 
 /// Free the write end of a pipe
 pub fn close_write_pipe(mut pipe: MutexGuard<Pipe>) {
-  pipe.write_open = false;
+  pipe.write_open -= 1;
 
   // Check if this pipe should be freed
-  if !pipe.read_open && !pipe.write_open {
+  if pipe.read_open == 0 && pipe.write_open == 0 {
     *pipe = Pipe::new();
   }
   

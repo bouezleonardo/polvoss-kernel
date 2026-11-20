@@ -345,6 +345,29 @@ write_file(fd: usize, usr_src: bool, src: Addr, len: usize)
   bytes
 }
 
+/// Increment an open_count of file
+pub fn dup_file(file_mtx: &'static Mutex<File>) {
+  let mut file: MutexGuard<File> = file_mtx.lock();
+  
+  if file.open_count == 0 {
+    panic!("[dup_file]: trying to dup an unreferenced file.");
+  }
+  
+  file.open_count += 1;
+  
+  // Check if the file is an pipe or inode
+  if file.pipe.is_some() {  
+    // Check which pipe end is being closed
+    if file.flags == O_RDONLY {
+      dup_read_pipe(file.pipe.unwrap().lock());
+    } else if file.flags == O_WRONLY {
+      dup_write_pipe(file.pipe.unwrap().lock());
+    }
+  } else if file.inode.is_some() {
+    dup_inode(file.inode.unwrap().lock());
+  }
+}
+
 /// Close a file. This decrements the reference count
 /// of the file. If the count reaches 0, the Inode or
 /// Pipe associated with this file is also freed.
@@ -355,19 +378,20 @@ pub fn close_file(mut file: MutexGuard<File>) {
   
   file.open_count -= 1;
   
-  // Free pipe
+  // Check if file is pipe or inode
   if file.pipe.is_some() {
+    // Check which pipe end is being closed
     if file.flags == O_RDONLY {
       close_read_pipe(file.pipe.unwrap().lock());
     } else if file.flags == O_WRONLY {
       close_write_pipe(file.pipe.unwrap().lock());
     }
-  } else if file.inode.is_some() && file.open_count == 0 {
-    // Free inode only when open_count == 0
+  } else if file.inode.is_some() {
+    // Close inode
     close_inode(file.inode.unwrap().lock());
   }
   
-  // Cleanup file
+  // Free this file
   if file.open_count == 0 {
     *file = File::new();
   }
