@@ -9,7 +9,6 @@ use crate::proc::spin::*;
 use crate::proc::sync::*;
 use crate::riscv::supervisor_mode::{write_stimecmp,
                                     read_time};
-use crate::print;
 
 /// Syncronize processes waiting for ticks
 pub static TICKS_CVAR: Condvar = Condvar::new();

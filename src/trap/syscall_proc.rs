@@ -261,7 +261,7 @@ pub fn sys_waitpid() -> usize {
     panic!("[waitpid]: failed to free child's kstack.");
   }
   free_pcb(child);
-  
+
   pid
 }
 

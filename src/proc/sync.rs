@@ -140,7 +140,7 @@ impl Condvar {
     &self, 
     mutex: &'static Mutex<Pcb>, 
     mut guard: MutexGuard<Pcb>
-  ) -> MutexGuard<'_, Pcb> {
+  ) -> MutexGuard<'_, Pcb> {  
     // Guard for the queue
     let mut queue: MutexGuard<CondvarQueue>;
     
@@ -185,6 +185,10 @@ impl Condvar {
       proc = opt.unwrap().lock();
       
       // Change process state
+      if proc.state != ProcState::Waiting {
+        panic!("[notify_all]: found process with status different from 'WAITING'.");
+      }
+      
       proc.state = ProcState::Ready;
       
       // Remove process from the queue
