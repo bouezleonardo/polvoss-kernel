@@ -68,7 +68,7 @@ pub fn first_addr() -> u64 {
 
 /// Address of the uservec code
 pub fn uservec_addr() -> u64 {
-  unsafe { uservec as *const() as u64 }
+  uservec as *const() as u64
 }
 
 /// Return the virtual address of userret
@@ -76,7 +76,5 @@ pub fn userret_addr() -> usize {
   const VEC: *const() = uservec as *const();
   const RET: *const() = userret as *const();
   
-  unsafe {
-    USERVEC + (RET as usize - VEC as usize)
-  }
+  USERVEC + (RET as usize - VEC as usize)
 }

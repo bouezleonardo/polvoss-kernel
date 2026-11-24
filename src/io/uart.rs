@@ -28,7 +28,7 @@ const IER_RX_ENABLE: u8 = 1<<0;
 /// FIFO enable code
 const FCR_FIFO_ENABLE: u8 = 1<<0;
 /// LCR word length
-const LCR_EIGHT_BITS: u8 = 3<<0;
+const LCR_EIGHT_BITS: u8 = 3;
 
 /// Read a register
 fn read_register(reg: u8) -> u8 {
@@ -127,9 +127,4 @@ macro_rules! uart_print {
 /// Move cursor to the row and col
 pub fn uart_move_cursor(row: usize, col: usize) {
   uart_print!("\x1B[{};{}H", row+1, col+1);
-}
-
-// Clear screen
-pub fn uart_clear() {
-  uart_print!("\x1B[2J\x1B[H");
 }

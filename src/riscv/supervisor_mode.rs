@@ -201,17 +201,12 @@ pub fn read_stval() -> usize {
   stval
 }
 
-/*******************|SRET|*********************/
+/*******************|SEPC|*********************/
 
 // The sret instruction returns from Supervisor
 // mode and switches to the mode specified in SPP.
 // It returns to the address saved in sepc. Read
 // section 12.1.7 of RISC-V privileged doc.
-
-/// Return from Supervisor mode
-pub fn sret() -> ! {
-  unsafe{ asm!("sret", options(noreturn)); }
-}
 
 /// Write to sepc register
 pub fn write_sepc(addr: usize) {

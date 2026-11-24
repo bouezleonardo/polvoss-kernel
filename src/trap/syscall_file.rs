@@ -65,7 +65,7 @@ pub fn sys_open() -> usize {
   let buf: [u8;PATH_SIZE] = [0;PATH_SIZE];
   
   // Copy the path string into buf
-  let mut str_size: usize = strcopyin(proc.lock().pagetable(), 
+  let str_size: usize = strcopyin(proc.lock().pagetable(), 
                                 Addr::to_addr(&buf), 
                                 path, 
                                 PATH_SIZE);
@@ -78,7 +78,7 @@ pub fn sys_open() -> usize {
   
   // Get the a string slice from the buffer (without \0)
   let opt: Result<&str, Utf8Error> = from_utf8(&buf[0..str_size-1]);
-  if !opt.is_ok() {
+  if opt.is_err() {
     return usize::MAX;
   }
   let path_str: &str = opt.unwrap();
@@ -140,7 +140,7 @@ pub fn sys_execv() -> usize {
   
   // Get the a string slice from the buffer (without \0)
   let opt: Result<&str, Utf8Error> = from_utf8(&buf[0..str_size-1]);
-  if !opt.is_ok() {
+  if opt.is_err() {
     return usize::MAX;
   }
   let path_str: &str = opt.unwrap();
@@ -164,7 +164,7 @@ pub fn sys_execv() -> usize {
   let mut arg_pointers: [usize; NUM_ARG] = [0; NUM_ARG];
   
   // Arguments
-  let mut args: [u8; ARG_SIZE*NUM_ARG] = [0;ARG_SIZE*NUM_ARG];
+  let args: [u8; ARG_SIZE*NUM_ARG] = [0;ARG_SIZE*NUM_ARG];
   
   // Argument count
   let mut argc: usize = 0;
@@ -289,7 +289,7 @@ pub fn sys_execv() -> usize {
 /// # Wrapper
 /// `int pipe(int p[2]);`
 pub fn sys_pipe() -> usize {
-  let mut proc: MutexGuard<Pcb> = current_proc_unwrap("pipe").lock();
+  let proc: MutexGuard<Pcb> = current_proc_unwrap("pipe").lock();
   
   // Get virtual addresses of p[0] (read) and p[1] (write)
   let tpf: Trapframe = proc.trapframe();

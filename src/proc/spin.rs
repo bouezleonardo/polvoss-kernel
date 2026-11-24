@@ -79,7 +79,7 @@ impl<T> Mutex<T> {
   
   /// Lock the Mutex
   pub fn lock(&self) -> MutexGuard<'_, T> {
-    black_box({
+    let _: () = {
       // Disable interrupts
       lock_stack_push();
 
@@ -91,7 +91,8 @@ impl<T> Mutex<T> {
       }
       
       self.locked.set(true)
-    });
+    };
+    black_box(());
    
     MutexGuard { mutex: self }
   }
@@ -102,10 +103,11 @@ impl<T> Drop for MutexGuard<'_, T> {
   /// Unlock the Mutex
   fn drop(&mut self) {
     if self.mutex.locked.get() {
-      black_box({
+      let _: () = {
         self.mutex.locked.set(false);
         lock_stack_pop()
-      });
+      };
+      black_box(());
     }
   }
 }

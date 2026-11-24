@@ -71,14 +71,12 @@ fn alloc_inode() -> Option<&'static Mutex<Inode>> {
 /// loaded.
 /// FIXME: this is not ready yet, just testing the console
 pub fn 
-open_inode(path: &str) 
+open_inode(_path: &str) 
 -> Option<&'static Mutex<Inode>> {
   
   let inode: Option<&'static Mutex<Inode>> = alloc_inode();
   
-  if inode.is_none() {
-    return None;
-  }
+  inode?;
   
   // Inode for the console
   *(inode.unwrap().lock()) = Inode {
@@ -99,10 +97,10 @@ open_inode(path: &str)
 /// - `dst`: destination address
 /// - `len`: amount of bytes to read
 pub fn 
-read_inode(inode_mtx: &'static Mutex<Inode>, 
-  usr_dst: bool, 
-  dst: Addr, 
-  len: usize)
+read_inode(_inode_mtx: &'static Mutex<Inode>, 
+  _usr_dst: bool, 
+  _dst: Addr, 
+  _len: usize)
 -> usize {
   0
 }
@@ -115,10 +113,10 @@ read_inode(inode_mtx: &'static Mutex<Inode>,
 /// - `src`: source address
 /// - `len`: amount of bytes to read
 pub fn 
-write_inode(inode: &'static Mutex<Inode>, 
-  usr_src: bool, 
-  src: Addr, 
-  len: usize)
+write_inode(_inode: &'static Mutex<Inode>, 
+  _usr_src: bool, 
+  _src: Addr, 
+  _len: usize)
 -> usize {
   0
 }

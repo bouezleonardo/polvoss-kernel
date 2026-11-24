@@ -325,16 +325,12 @@ pub fn find_child(proc: &'static Mutex<Pcb>, pid: usize)
   // Look for a process with the spcified PID
   let opt: Option<&'static Mutex<Pcb>> = find_proc(pid);
   
-  if opt.is_none() {
-    return None;
-  }
+  opt?;
   
   let child: MutexGuard<Pcb> = opt.unwrap().lock();
   
   // Check if the child has a parent
-  if child.parent.is_none() {
-    return None;
-  }
+  child.parent?;
   
   // Check if proc is the child's parent
   if core::ptr::eq(proc, child.parent.unwrap()) {

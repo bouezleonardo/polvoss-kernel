@@ -4,14 +4,13 @@
 //! from kernel and userspace.
 
 use crate::riscv::supervisor_mode::*;
-use crate::memory::memory_types::{Addr, satp_format};
+use crate::memory::memory_types::satp_format;
 use crate::proc::processing::{cpu_id, current_proc,
                               current_proc_unwrap,
-                              terminated, yield_cpu};
+                              terminated};
 use crate::proc::control_types::*;
 use crate::proc::spin::*;
-use crate::memory::memory_layout::{USERVEC, STACK_GUARD};
-use crate::config::constants::{PAGE_SIZE};
+use crate::memory::memory_layout::USERVEC;
 use super::kernelvec::kernelvec;
 use super::trap_codes::*;
 use super::trap_types::*;
@@ -28,13 +27,6 @@ pub fn install_kernelvec() {
 /// Write uservec address to stvec register
 pub fn install_uservec() {
   write_stvec(USERVEC);
-}
-
-/// Generate a software interrupt for testing
-pub fn generate_interrupt() {
-  unsafe {
-    core::arch::asm!("csrs sip, {0}", in(reg) (1 << 1));
-  }
 }
 
 /// Get interrupt bit and exception code

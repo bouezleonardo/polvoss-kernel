@@ -7,9 +7,7 @@ use crate::riscv::supervisor_mode::{sum_on, sum_off};
 use super::memory_types::*;
 use crate::memory::memory_layout::*;
 use super::frame_alloc::{kmalloc, kfree};
-use crate::config::constants::{PAGE_SIZE, UART0, PLIC,
-                               M_BASE, M_WIDTH, NUM_CPU,
-                               M_HEIGHT, RAM_SIZE, USTACK_SIZE,
+use crate::config::constants::{PAGE_SIZE, UART0, PLIC, USTACK_SIZE,
                                KSTACK_SIZE, NUM_FILE};
 use crate::proc::spin::*;
 use crate::proc::control_types::Pcb;
@@ -38,7 +36,7 @@ static KSTACK_COUNT: Mutex<usize> = Mutex::new(0);
 fn 
 map(pgt: PageTable, mut va: Addr, mut pa: Addr, size: usize, 
 perm: u8) -> bool {
-  let last: Addr;              // Last address to map
+                // Last address to map
   let mut pte: PageTableEntry; // Leaf PTE
   let mut pgt_l: PageTable;    // Leaf page table
   let mut index: usize;        // Leaf PTE index inside the page table
@@ -57,7 +55,7 @@ perm: u8) -> bool {
   }
   
   // Start at va, map to last
-  last = va.clone() + size - PAGE_SIZE;
+  let last: Addr = va.clone() + size - PAGE_SIZE;
   while va <= last {
     // Walk the page table until the leaf PTE for the current
     // address is found 
@@ -117,7 +115,7 @@ unmap(pgt: PageTable, mut va: Addr, num_pages: usize, free: bool)
     return false;
   }
   
-  for i in 0..num_pages {
+  for _i in 0..num_pages {
     // Walk the page table until the leaf PTE is found 
     opt = walk(pgt.clone(), va.clone(), false);
     if opt.is_none() {
@@ -202,7 +200,7 @@ pub fn use_virtual_memory(){
 pub fn 
 walkaddr(mut pgt: PageTable, va: Addr) -> Option<Addr> {  
   // Leaf PTE index inside the page table
-  let mut index: usize;   
+  let index: usize;   
   
   // Check of va is within boundries
   if va.as_integer() > MAX_VIRT_ADDR as u64 {
@@ -212,9 +210,7 @@ walkaddr(mut pgt: PageTable, va: Addr) -> Option<Addr> {
   // Walk the page table until the leaf PTE for the
   // address is found 
   let opt: Option<(PageTable, usize)> = walk(pgt.clone(), va, false);
-  if opt.is_none() {
-    return None;
-  }
+  opt.as_ref()?;
   // Get the leaf page table and index of the PTE
   (pgt, index) = opt.unwrap();
   // Get the PTE from the page table
@@ -239,13 +235,11 @@ walkaddr(mut pgt: PageTable, va: Addr) -> Option<Addr> {
 /// # Return
 /// Physical address associated with the virtual address
 pub fn 
-va_to_pa(mut pgt: PageTable, va: Addr) -> Option<Addr> {  
+va_to_pa(pgt: PageTable, va: Addr) -> Option<Addr> {  
   // Get the page from the pagetable
   let page: Option<Addr> = walkaddr(pgt, va.clone());
   
-  if page.is_none() {
-    return None;
-  }
+  page.as_ref()?;
   
   // Add the address offset (first 12 bits)
   let pa: Addr = page.unwrap() + (va.as_integer() & 0xfff) as usize;
@@ -482,7 +476,7 @@ pub fn copy_proc_image(
   }
   
   // Leaf page table and index for TRAPFRAME
-  let (mut pgt0, i): (PageTable, usize) = pte_opt.unwrap();
+  let (pgt0, i): (PageTable, usize) = pte_opt.unwrap();
   
   dst.init_trapframe(pgt0.read_pte(i).get_addr());
   
@@ -682,7 +676,7 @@ pub fn
 create_kstack(proc: &mut MutexGuard<Pcb>) 
 -> bool {
   let mut count: MutexGuard<usize> = KSTACK_COUNT.lock();
-  let mut pgt: PageTable; 
+  let pgt: PageTable; 
   let mut page: Option<Addr>;
   
   // Kernel pagetable
@@ -740,7 +734,7 @@ free_kstack(proc: &mut MutexGuard<Pcb>)
     return false;
   }
   // Kernel pagetable
-  let mut pgt: PageTable; 
+  let pgt: PageTable; 
   unsafe{
     pgt = PageTable::new(Addr::new(KERNEL_PGT));
   }

@@ -3,7 +3,7 @@
 /******************|DEVICES|*********************/
 
 /// Console device number (major + minor)
-pub const CONSOLE: u16 = (0<<8)+1;
+pub const CONSOLE: u16 = 1;
 
 /*******************|SYSTEM|*********************/
 
@@ -36,9 +36,6 @@ pub const USTACK_SIZE: usize = 3;
 
 /// Time for the timer interrupts (ms)
 pub const TICK_TIME: u64 = 10;
-
-/// Size of disk block in bytes
-pub const SECTOR_SIZE: usize = 512; 
 
 /******************|HARDWARE|********************/
 

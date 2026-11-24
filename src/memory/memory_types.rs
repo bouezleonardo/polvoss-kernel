@@ -179,15 +179,6 @@ impl PageTable {
      
      addr.write::<PageTableEntry>(pte);
   }
-  /// Get the PTE address in the specified `index`
-  pub fn pte_addr(&self, index: usize) -> Addr {
-     // Panic if index is greater than 1023
-     if index > 1023 {
-       panic!("[page table]: invalid index.");
-     }
-     // Each index corresponds to a PTE
-     self.as_addr()+(index * PTE_SIZE)
-  }
   /// Set the page table to `value`
   pub fn pageset(&self, value: u8) {
     self.0.memset(value, PAGE_SIZE);
@@ -207,7 +198,7 @@ pub fn find_index(level: usize, va: Addr) -> usize {
   let mut aux: u64 = va.as_integer() >> 12;
 
   // Put the index for this level in the first 10 bits
-  aux = aux >> (level*10);
+  aux >>= level*10;
 
   // Get the 10 first bits, zero out the rest
   aux &= 0x3FF;
@@ -245,9 +236,7 @@ pub fn walk(mut pgt: PageTable, va: Addr, alloc: bool)
    frame = kmalloc();
  
    // Check if kmalloc was successful
-   if frame.is_none() {
-     return None;
-   }
+   frame.as_ref()?;
 
    // Create the PTE that stores the address for the
    // leaf page table
@@ -330,13 +319,11 @@ copy_addr_space(pgt1: PageTable)
   
   // Allocate a frame for the new pgt
   let mut addr_opt: Option<Addr> = kmalloc();
-  if addr_opt.is_none() {
-    return None;
-  }
+  addr_opt.as_ref()?;
   // Indicate if there was something to copy
   let mut empty: bool = true;
   // Level 1 new page table
-  let mut new_pgt1: PageTable;
+  
   // Level 0 new page table
   let mut new_pgt0: PageTable;
   // Level 0 target page table
@@ -344,7 +331,7 @@ copy_addr_space(pgt1: PageTable)
   let mut addr: Addr = addr_opt.unwrap();
   let mut pte: PageTableEntry;
   
-  new_pgt1 = PageTable::new(addr);
+  let new_pgt1: PageTable = PageTable::new(addr);
   
   // Clear page
   new_pgt1.pageset(0);
@@ -441,46 +428,4 @@ pub fn prev_page(addr: Addr) -> Addr {
 // Next address multiple of page
 pub fn next_page(addr: Addr) -> Addr {
   prev_page(addr + PAGE_SIZE - 1)
-}
-
-/// Walk the levels of the pagetable to
-/// printing the mappings
-/// physical one.
-/// # Arguments
-/// - `pgt1`: pagetable to print
-pub fn print_addr_space(pgt1: PageTable){
-  // Number of PTEs in a page
-  const NUM_PTE: usize = PAGE_SIZE/PTE_SIZE;
-  
-  let mut pgt0: PageTable;
-  let mut pte0: PageTableEntry;
-  let mut pte1: PageTableEntry;
-  
-  // Walk through level 1
-  crate::print!("\n\r(PGT 1): {:#x}", pgt1.as_addr().as_integer());
-  for i in 0..NUM_PTE {
-    pte1 = pgt1.read_pte(i);
-    
-    // Check if the PTE is empty
-    if pte1 == PageTableEntry(0) {
-      continue;
-    }
-    
-    // Level 0 page tables
-    pgt0 = PageTable::new(pte1.get_addr());
-    
-    crate::print!("\n\r(PGT 0)[{}]: {:#x}", i, pgt0.as_addr().as_integer());
-    
-    // Walk through level 0
-    for j in 0..NUM_PTE {
-      pte0 = pgt0.read_pte(j);
-    
-      if pte0 == PageTableEntry(0) {
-        continue;
-      }
-      
-      let va: u64 = ((i as u64) << 22) + ((j as u64) << 12);
-      crate::print!("\n\r (PTE 0)[{}][{}]: v {:#x} -> p {:#x}", i, j, va, pte0.get_addr().as_integer());
-    }
-  }
 }

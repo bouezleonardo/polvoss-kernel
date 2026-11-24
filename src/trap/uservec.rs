@@ -8,7 +8,6 @@
 
 use core::arch::global_asm;
 use crate::memory::memory_layout::{TRAPFRAME};
-use super::trap_handlers::usertrap;
 
 // Using global assembly to allow aligning the 
 // uservec function address to be used in the

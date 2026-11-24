@@ -110,8 +110,8 @@ open_inode_file(path: &str, flags: u32)
   let mut proc: MutexGuard<Pcb> = current_proc_unwrap("open_inode_file").lock();
   
   // Try to read the inode for this path
-  let inode_opt: Option<&'static Mutex<Inode>>;
-  inode_opt = open_inode(path);
+  
+  let inode_opt: Option<&'static Mutex<Inode>> = open_inode(path);
   
   if inode_opt.is_none() {
     return usize::MAX;
@@ -130,7 +130,7 @@ open_inode_file(path: &str, flags: u32)
   file.inode = inode_opt;
   
   // Lock the inode mutex
-  let mut inode: MutexGuard<Inode> = 
+  let inode: MutexGuard<Inode> = 
     inode_opt.unwrap().lock();
   
   // Check inode type
@@ -242,14 +242,14 @@ read_file(fd: usize, usr_dst: bool, dst: Addr, len: usize)
   }
   
   // Get the current process
-  let mut proc: MutexGuard<Pcb> = current_proc_unwrap("read_file").lock();
+  let proc: MutexGuard<Pcb> = current_proc_unwrap("read_file").lock();
   
   if proc.files[fd].is_none() {
     return usize::MAX;
   }
   
   // Get the file
-  let mut file: MutexGuard<File> = proc.files[fd].unwrap().lock();
+  let file: MutexGuard<File> = proc.files[fd].unwrap().lock();
   
   // Don't need process anymore
   drop(proc);
@@ -300,7 +300,7 @@ write_file(fd: usize, usr_src: bool, src: Addr, len: usize)
   }
   
   // Get the current process
-  let mut proc: MutexGuard<Pcb> = 
+  let proc: MutexGuard<Pcb> = 
     current_proc_unwrap("write_file").lock();
   
   if proc.files[fd].is_none() {
@@ -308,7 +308,7 @@ write_file(fd: usize, usr_src: bool, src: Addr, len: usize)
   }
   
   // Get the file
-  let mut file: MutexGuard<File> = 
+  let file: MutexGuard<File> = 
     proc.files[fd].unwrap().lock();
   
   // Don't need process anymore

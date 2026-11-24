@@ -3,13 +3,11 @@
 //! This module contains the functions
 //! for system calls related to processes.
 
-use crate::config::constants::{NUM_PROC, TICK_TIME, USTACK_SIZE,
-                              PAGE_SIZE};
+use crate::config::constants::TICK_TIME;
 use crate::memory::virtual_memory::{copyout, copy_proc_image,
                                     create_kstack, free_proc_image,
                                     free_kstack, grow_proc_image,
                                     shrink_proc_image};
-use crate::memory::frame_alloc::{kmalloc};
 use crate::proc::processing::{current_proc_unwrap,
                               find_child, find_state_child,
                               call_scheduler, alloc_pcb,
@@ -17,9 +15,9 @@ use crate::proc::processing::{current_proc_unwrap,
 use crate::proc::control_types::{Pcb, ProcState, SIGKILL};
 use crate::proc::spin::*;
 use crate::proc::sync::*;
-use crate::memory::memory_types::{Addr, PageTable, satp_format,
+use crate::memory::memory_types::{Addr, satp_format,
                                  PTE_R, PTE_W, PTE_U};
-use crate::memory::memory_layout::{userret_addr, USTACK, STACK_GUARD};
+use crate::memory::memory_layout::{userret_addr, STACK_GUARD};
 use super::clock::{TICKS, TICKS_CVAR};
 use super::trap_types::Trapframe;
 use super::trap_handlers::{prepare_return};

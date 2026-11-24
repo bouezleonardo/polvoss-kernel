@@ -6,9 +6,8 @@
 //! monitor.
 
 use core::fmt;
-use core::str::from_utf8;
 use crate::proc::spin::{Mutex, MutexGuard};
-use crate::proc::processing::{either_copyin, print_stats, either_copyout, current_proc};
+use crate::proc::processing::{either_copyin, print_stats, either_copyout};
 use crate::proc::sync::*;
 use crate::memory::memory_types::{Addr};
 use super::monitor::*;
@@ -128,7 +127,7 @@ fn process_ansi(buf: &mut [u8]) -> usize {
       
       // Amount of bytes to remove from buf
       // after processing
-      let mut remove: usize = 0;
+      let mut remove: usize;
       
       // Check which sequence it is
       match buf[i+2] {
@@ -250,7 +249,7 @@ console_write(usr_src: bool, src: Addr, len: usize)
     let opt: Result<&str, Utf8Error> = from_utf8(&buf);
 
     // Check if was a valid UTF8 string in buf
-    if !opt.is_ok() {
+    if opt.is_err() {
       return usize::MAX;
     }
 
@@ -285,7 +284,7 @@ console_read(usr_dst: bool, mut dst: Addr, len: usize)
   let mut buf: [u8;1] = [0;1];
   // Number of bytes read
   let mut bytes: usize = 0;
-  let mut i: usize = 0;
+  let _i: usize = 0;
   
   // Get the mode (canonical/raw)
   let canon: bool = *(CANONICAL.lock());
@@ -311,7 +310,7 @@ console_read(usr_dst: bool, mut dst: Addr, len: usize)
       dst += 1;
     }
   } else if canon {
-    let mut chr: u8 = b' ';
+    let mut chr: u8;
     
     // Read all bytes until the end of line
     while bytes < len { 

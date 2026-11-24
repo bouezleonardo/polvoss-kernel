@@ -47,9 +47,7 @@ pub fn open_pipe() -> Option<&'static Mutex<Pipe>> {
       // Allocate a page for the buffer
       let buf: Option<Addr> = kmalloc();
       
-      if buf.is_none() {
-        return None;
-      }
+      buf.as_ref()?;
       
       pipe.read_open = 1;
       pipe.write_open = 1;

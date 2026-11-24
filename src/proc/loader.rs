@@ -5,8 +5,7 @@
 
 use crate::memory::memory_types::*;
 use crate::fs::elf::*;
-use crate::memory::virtual_memory::{grow_proc_image,
-                                    walkaddr, copyout};
+use crate::memory::virtual_memory::{grow_proc_image, copyout};
 use crate::trap::trap_types::Trapframe;
 use super::control_types::Pcb;
 use super::spin::MutexGuard;
@@ -81,13 +80,8 @@ load(path: &str, proc: &mut MutexGuard<Pcb>)
       }
     }
     
-    let mut success: bool = true;
-    success = copyout(proc.pagetable(), 
-                 Addr::new(phdr.p_vaddr as u64), 
-                 seg_addr, 
-                 phdr.p_filesz as usize);
-    
-    if !success {
+    if !copyout(proc.pagetable(), Addr::new(phdr.p_vaddr as u64), 
+                seg_addr, phdr.p_filesz as usize) {
       return false;
     }
   }

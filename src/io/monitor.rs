@@ -147,8 +147,8 @@ impl Monitor {
   /// # Return
   /// Amount of characters erased
   pub fn backspace(&mut self) -> usize {
-    let mut new_col: usize; // New cursor column
-    let mut new_row: usize; // New cursor column
+    let new_col: usize; // New cursor column
+    let new_row: usize; // New cursor column
     let mut erased: usize = 0;  // Amount of characters erased
     
     // Check if it needs to go up one line   
@@ -188,7 +188,7 @@ impl Monitor {
   /// Tab (8 spaces)
   fn tab(&mut self) {
     // Set col position to the next multiple 8
-    self.col = (self.col + 7) / 8 * 8;
+    self.col = self.col.div_ceil(8) * 8;
   }
   
   /// Print a character in the in the monitor
@@ -300,7 +300,7 @@ impl Monitor {
     // old and new chr are used to avoid rewritting the same
     // character again
     let mut old_chr: u8 = 0;
-    let mut new_chr: u8 = 0;
+    let mut new_chr: u8;
     
     for i in 0..M_HEIGHT {
       for j in 0..M_WIDTH {

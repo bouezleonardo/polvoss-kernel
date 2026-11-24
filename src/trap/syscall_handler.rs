@@ -48,7 +48,7 @@ pub fn syscall(){
   
   drop(proc); // Unlock proc Mutex
   
-  let mut test: bool = false;
+  let _test: bool = false;
   
   // Call the system call function
   match tpf.a7 {
