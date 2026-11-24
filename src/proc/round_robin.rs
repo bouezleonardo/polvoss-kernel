@@ -24,7 +24,7 @@ pub fn round_robin()
       guard = PCB[i].lock();
       
       START = i+1;
-      if(START == NUM_PROC) {
+      if START == NUM_PROC {
         START = 0;
       }
       
