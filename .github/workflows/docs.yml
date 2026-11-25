@@ -10,12 +10,12 @@ permissions:
   pages: write
   id-token: write
 
-jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
+jobs:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,19 +27,36 @@ jobs:
 
       - name: Generate documentation
         run: cargo doc --no-deps
-        env:
-          RUSTDOCFLAGS: "-Z unstable-options --static-root-path /polvoss-kernel/"
 
       - name: Prepare documentation
         run: |
-          mkdir -p public
-          cp -r target/doc/. public/
+          echo '<!DOCTYPE html>
+          <html>
+          <head>
+            <meta http-equiv="refresh" content="0; url=polvoss_kernel/">
+            <title>POLVOSS Documentation</title>
+          </head>
+          <body>
+            <a href="polvoss_kernel/">POLVOSS Documentation</a>
+          </body>
+          </html>' > target/doc/index.html
+
+          touch target/doc/.nojekyll
 
       - name: Upload documentation
         uses: actions/upload-pages-artifact@v3
         with:
-          path: public
+          path: target/doc
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
