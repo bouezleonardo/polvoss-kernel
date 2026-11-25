@@ -28,7 +28,7 @@ jobs:
       - name: Generate documentation
         run: cargo doc --no-deps
         env:
-          RUSTDOCFLAGS: "--static-root-path /polvoss-kernel/"
+          RUSTDOCFLAGS: "-Z unstable-options --static-root-path /polvoss-kernel/"
 
       - name: Prepare documentation
         run: |
