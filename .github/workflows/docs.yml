@@ -26,12 +26,12 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
 
       - name: Generate documentation
-        run: cargo doc --no-deps
+        run: cargo doc --no-deps --static-root-path /polvoss-kernel/
 
       - name: Prepare documentation
         run: |
           mkdir -p public
-          cp -r target/doc/polvoss_kernel/* public/
+          cp -r target/doc/polvoss_kernel/. public/
           touch public/.nojekyll
 
       - name: Upload documentation
